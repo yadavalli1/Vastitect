@@ -21,7 +21,7 @@ import { buildSample } from "./sample";
 export { registry };
 export const model = new ModelStore(emptyWorkspace());
 
-export type Page = "diagram" | "inventory" | "capabilities" | "roadmap" | "impact" | "reports" | "adrs" | "repository" | "mappings" | "discover" | "plugins" | "settings";
+export type Page = "diagram" | "inventory" | "capabilities" | "roadmap" | "impact" | "reports" | "adrs" | "repository" | "mappings" | "discover" | "plugins" | "assistant" | "settings";
 
 export interface Review {
   title: string;

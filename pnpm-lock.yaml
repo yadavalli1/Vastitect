@@ -29,6 +29,9 @@ importers:
       '@tauri-apps/plugin-dialog':
         specifier: ^2.2.0
         version: 2.8.4
+      '@vastitecture/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@vastitecture/connectors-discovery':
         specifier: workspace:*
         version: link:../../packages/connectors/discovery
@@ -117,6 +120,12 @@ importers:
       vite:
         specifier: ^6.0.3
         version: 6.4.6(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.33.0)(yaml@2.9.1)
+
+  packages/ai:
+    dependencies:
+      '@vastitecture/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/connectors/discovery:
     dependencies:

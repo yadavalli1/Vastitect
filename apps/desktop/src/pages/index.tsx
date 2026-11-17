@@ -13,6 +13,8 @@ import { CapabilitiesPage } from "./Capabilities";
 import { RoadmapPage } from "./Roadmap";
 import { ImpactPage } from "./Impact";
 import { AdrsPage } from "./Adrs";
+import { AssistantPage } from "./Assistant";
+import { SettingsPage } from "./Settings";
 import { t } from "../i18n";
 
 pages.push(
@@ -26,6 +28,8 @@ pages.push(
   { id: "mappings", label: () => t("Cross-notation mapping"), icon: "⇄", render: () => <MappingsPage /> },
   { id: "discover", label: () => t("Discover"), icon: "🔍", render: () => <DiscoverPage /> },
   { id: "plugins", label: () => t("Plugins"), icon: "🧩", render: () => <PluginsPage /> },
+  { id: "assistant", label: () => t("Assistant"), icon: "✦", render: () => <AssistantPage /> },
+  { id: "settings", label: () => t("Settings"), icon: "⚙", render: () => <SettingsPage /> },
 );
 
 // Views whose viewpoint is a form (e.g. the Bounded Context Canvas) are drawn as a card instead of a node canvas.
