@@ -162,6 +162,7 @@ export async function resolveConflict(path: string, take: "ours" | "theirs") {
 }
 
 export async function openWorkspace(fs: WorkspaceFS, initial?: Workspace) {
+  performance.mark("vastitecture:open-start");
   await saving;
   unwatch?.();
   persister = new Persister(fs);
@@ -181,6 +182,8 @@ export async function openWorkspace(fs: WorkspaceFS, initial?: Workspace) {
     loadIssues: issues,
     conflicts: [],
   });
+  performance.mark("vastitecture:open-end");
+  performance.measure("vastitecture:open", "vastitecture:open-start", "vastitecture:open-end");
 }
 
 export function blankWorkspace(name: string): Workspace {

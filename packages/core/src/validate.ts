@@ -61,6 +61,8 @@ export function validate(ws: Workspace, reg: Registry): Problem[] {
   }
 
   const names = new Map<string, Id[]>();
+  const parents = new Set<Id>();
+  for (const e of Object.values(ws.elements)) if (e.parent) parents.add(e.parent);
   for (const e of Object.values(ws.elements)) {
     const def = reg.elementType(e.type);
     if (!def && reg.packs.size) {
@@ -84,8 +86,7 @@ export function validate(ws: Workspace, reg: Registry): Problem[] {
     if (!e.description?.trim()) {
       problems.push({ code: "missing-description", severity: "info", message: `"${e.name}" has no description`, target: { kind: "element", id: e.id } });
     }
-    const hasChildren = Object.values(ws.elements).some((c) => c.parent === e.id);
-    if (!connected.has(e.id) && !placed.has(e.id) && !e.parent && !hasChildren) {
+    if (!connected.has(e.id) && !placed.has(e.id) && !e.parent && !parents.has(e.id)) {
       problems.push({
         code: "orphan",
         severity: "info",

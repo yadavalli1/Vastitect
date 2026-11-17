@@ -1,4 +1,8 @@
-import { parse, stringify } from "yaml";
+import { stringify } from "yaml";
+import { load, JSON_SCHEMA } from "js-yaml";
+
+/** Reading uses js-yaml (several times faster on thousands of small files); writing uses yaml for stable output. */
+const parse = (text: string): unknown => load(text, { schema: JSON_SCHEMA });
 import {
   AdrSchema,
   ElementSchema,

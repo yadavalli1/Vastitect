@@ -246,6 +246,7 @@ export function toggleCollapse(viewId: Id, elementId: Id) {
 export async function runLayout(viewId: Id, algorithm?: string, silent = false) {
   const view = model.state.views[viewId];
   if (!view) return;
+  performance.mark("vastitecture:layout-start");
   const vp = registry.viewpoint(view.notation, view.viewpoint);
   const engine = registry.layouts.get(algorithm ?? vp?.layout?.algorithm ?? "layered");
   if (!engine) return;
@@ -259,6 +260,7 @@ export async function runLayout(viewId: Id, algorithm?: string, silent = false) 
       .filter(Boolean)
       .map((r) => ({ id: r.id, source: r.source, target: r.target })),
   });
+  performance.measure("vastitecture:layout", "vastitecture:layout-start");
   const nodes = Object.entries(result).map(([element, p]) => ({ element, x: p.x, y: p.y, ...(hasKids.has(element) && p.w ? { w: p.w, h: p.h } : {}) }));
   const cmds: Command[] = [
     { type: "updateNodes", view: viewId, nodes },
