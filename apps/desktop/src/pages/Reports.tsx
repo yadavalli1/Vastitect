@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { runReport, tableToCsv, tableToMarkdown, type ReportDef, type Table } from "@vastitecture/core";
 import { model, registry, select, set, useModel, useRegistryVersion } from "../state";
 import { saveFile } from "../platform";
-import { tableToXlsx } from "../xlsx";
+import { tableToXlsx } from "@vastitecture/io-formats";
 import { t } from "../i18n";
 
 export function TableExport({ table, base }: { table: Table; base: string }) {

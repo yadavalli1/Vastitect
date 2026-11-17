@@ -43,3 +43,28 @@ Status, diff and log in-app; pull/push/commit are left to the user's own Git too
 
 ## D-14 ArchiMate 4 facts taken from the build prompt
 The April 2026 release, the 60 → 42 concept reduction and the removed-concept mappings are implemented as stated in the prompt and its listed sources; they will be checked against the published summary when the pack's data files are written in M3, and any discrepancy reported rather than guessed.
+
+## D-15 Plugin sandbox is a Web Worker with globals removed
+Third-party plugins run in one module worker each. Network and storage globals are deleted before
+the plugin's code is imported, its `@vastitecture/plugin-sdk` import is rewritten to a small shim, and
+everything else goes through a structured-clone RPC whose host checks capabilities and permissions.
+Built-ins run in a shared worker through the same RPC. UI-capable plugins get a script-less iframe
+panel only; richer interactive plugin UI is a later step.
+
+## D-16 Renderer-dependent exporters run in the app
+PDF, the static HTML site and Markdown docs need the SVG renderer and every installed notation's
+shapes, so they register (through the same plugin API) in the app rather than in the worker.
+PDF pages are high-resolution JPEGs of each view, not vector graphics.
+
+## D-17 The `ulid` package was replaced
+It refuses to run in workers. `newId()` now generates ULIDs with `crypto.getRandomValues`.
+
+## D-18 Fixture sources
+Published samples are read from npm packages at test time rather than copied in (see
+`fixtures/README.md`). Where no published sample was reachable (docker-compose, Kubernetes, Helm,
+Terraform, AsyncAPI, draw.io) the fixtures were written for this project.
+
+## D-19 ArchiMate 4 element list is unverified
+The pack's element list follows the public summaries quoted in the build prompt because the
+specification and the vendor change summaries could not be fetched from the build environment.
+`packs/archimate/elements.json` is marked `"verified": false` and the problems panel says so.

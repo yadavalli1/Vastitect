@@ -202,6 +202,7 @@ function flushOnExit() {
 export async function boot() {
   flushOnExit();
   await activateBuiltins();
+  await (await import("./hostExporters")).activateHostExporters();
   document.documentElement.dataset.theme = app.getState().theme;
   const name = lastWorkspace.get();
   const fs = new LocalStorageFS(name ?? "sample");

@@ -2,7 +2,7 @@ import type { ExportResult, Exporter, ImportInput, Importer, ModelPatch } from "
 import { app, model, registry, set, toast } from "./state";
 import { pickFiles, saveFile } from "./platform";
 import { contributeCommands } from "./commands";
-import { zip } from "./zip";
+import { zip } from "@vastitecture/io-formats";
 import { t } from "./i18n";
 
 const ext = (name: string) => name.slice(name.lastIndexOf(".") + 1).toLowerCase();

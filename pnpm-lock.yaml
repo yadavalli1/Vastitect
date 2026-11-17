@@ -41,6 +41,9 @@ importers:
       '@vastitecture/io-cml':
         specifier: workspace:*
         version: link:../../packages/io/cml
+      '@vastitecture/io-formats':
+        specifier: workspace:*
+        version: link:../../packages/io/formats
       '@vastitecture/io-structurizr':
         specifier: workspace:*
         version: link:../../packages/io/structurizr
@@ -170,6 +173,19 @@ importers:
       context-mapper-mcp:
         specifier: 1.2.1
         version: 1.2.1
+
+  packages/io/formats:
+    dependencies:
+      '@vastitecture/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../plugin-sdk
+      fast-xml-parser:
+        specifier: ^4.5.0
+        version: 4.5.7
+    devDependencies:
+      '@mermaid-js/examples':
+        specifier: 2.1.0
+        version: 2.1.0
 
   packages/io/structurizr:
     dependencies:
@@ -856,6 +872,10 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@mermaid-js/examples@2.1.0':
+    resolution: {integrity: sha512-Obn3CNIX5sGbILKc5+aKyHuN+dKqt/v4RZ1tpZ7TWai8rFNryyLv/TFx4cwc+N9KxHjF3uoY54x0j9QgC1C9rQ==}
+    engines: {node: '>=22.12.0'}
 
   '@modelcontextprotocol/sdk@1.32.2':
     resolution: {integrity: sha512-SWsVtH/0vULSQStoZ6xxH2K09Li8fXYTMC64ZeogCdpZ3XSi1eCPOByV1OpuJxuI3OcmHhosDWYyii07tpPsLw==}
@@ -3406,6 +3426,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.3
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  '@mermaid-js/examples@2.1.0': {}
 
   '@modelcontextprotocol/sdk@1.32.2(zod@3.25.76)':
     dependencies:

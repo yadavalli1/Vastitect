@@ -60,3 +60,38 @@ export function zip(files: Record<string, string | Uint8Array>): Uint8Array {
   }
   return out;
 }
+
+/** Inflate raw-deflate data with the platform's DecompressionStream (browsers, workers, Node 18+). */
+export async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
+  const stream = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/** Read a ZIP archive (stored or deflated entries). */
+export async function unzip(bytes: Uint8Array): Promise<Record<string, Uint8Array>> {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--)
+    if (view.getUint32(i, true) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  if (eocd < 0) throw new Error("Not a ZIP file");
+  const count = view.getUint16(eocd + 10, true);
+  let p = view.getUint32(eocd + 16, true);
+  const out: Record<string, Uint8Array> = {};
+  const dec = new TextDecoder();
+  for (let n = 0; n < count; n++) {
+    if (view.getUint32(p, true) !== 0x02014b50) throw new Error("Corrupt ZIP central directory");
+    const method = view.getUint16(p + 10, true);
+    const size = view.getUint32(p + 20, true);
+    const nameLen = view.getUint16(p + 28, true), extraLen = view.getUint16(p + 30, true), commentLen = view.getUint16(p + 32, true);
+    const local = view.getUint32(p + 42, true);
+    const name = dec.decode(bytes.subarray(p + 46, p + 46 + nameLen));
+    const dataStart = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+    const raw = bytes.subarray(dataStart, dataStart + size);
+    if (!name.endsWith("/")) out[name] = method === 0 ? raw : method === 8 ? await inflateRaw(raw) : (() => { throw new Error(`Unsupported ZIP compression ${method}`); })();
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return out;
+}

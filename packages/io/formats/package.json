@@ -1,0 +1,14 @@
+{
+  "name": "@vastitecture/io-formats",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@vastitecture/plugin-sdk": "workspace:*",
+    "fast-xml-parser": "^4.5.0"
+  },
+  "devDependencies": {
+    "@mermaid-js/examples": "2.1.0"
+  }
+}
