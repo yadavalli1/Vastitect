@@ -133,3 +133,5 @@ export async function activate(plugin: Plugin, registry: Registry, services?: Ho
   await plugin.activate(ctx);
   return dispose;
 }
+
+export * from "./rpc";

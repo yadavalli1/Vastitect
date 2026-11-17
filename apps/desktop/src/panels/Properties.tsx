@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LIFECYCLE_PHASES, presentationType, viewsContaining, type Element, type Id, type PropertyDef, type PropertyValue } from "@vastitecture/core";
+import { LIFECYCLE_PHASES, presentationType, viewsContaining, type Element, type Id, type PropertyDef, type PropertyValue, type SidePanel } from "@vastitecture/core";
 import { dispatch, model, registry, select, set, useApp, useModel, useRegistryVersion } from "../state";
 import { createView, retype } from "../ops";
 import { t } from "../i18n";
@@ -302,6 +302,28 @@ export function Properties() {
       ) : activeView ? (
         <ViewProps id={activeView} />
       ) : null}
+      {[...registry.panels.values()].map((p) => <PluginPanel key={p.id} panel={p} />)}
     </aside>
+  );
+}
+
+/** A plugin's side panel: its HTML is shown in an iframe that can run no scripts and reach nothing. */
+function PluginPanel({ panel }: { panel: SidePanel }) {
+  const ws = useModel((w) => w);
+  const [html, setHtml] = useState(panel.html ?? "");
+  useEffect(() => {
+    if (!panel.render) return;
+    let cancelled = false;
+    const timer = setTimeout(() => void Promise.resolve(panel.render!(ws)).then((h) => !cancelled && setHtml(String(h))).catch((e) => !cancelled && setHtml(`<p>${String(e)}</p>`)), 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [ws, panel]);
+  return (
+    <details open style={{ borderTop: "1px solid var(--border)" }} data-panel={panel.id}>
+      <summary className="h" style={{ cursor: "pointer" }}>{panel.title}</summary>
+      <iframe title={panel.title} sandbox="" srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:12px system-ui,sans-serif;margin:8px}</style>${html}`} style={{ width: "100%", height: 180, border: 0, background: "#fff" }} />
+    </details>
   );
 }

@@ -1,12 +1,25 @@
 import { z } from "zod";
-import { ulid } from "ulid";
 
 /** Identifier: lowercase ULID. */
 export type Id = string;
 /** Namespaced type id, "<pack>:<Name>". */
 export type TypeId = string;
 
-export const newId = (): Id => ulid().toLowerCase();
+const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
+/** A ULID: 48 bits of time then 80 random bits, Crockford base32. Works in browsers, workers and Node. */
+export function newId(): Id {
+  let t = Date.now();
+  let time = "";
+  for (let i = 0; i < 10; i++) {
+    time = CROCKFORD[t % 32] + time;
+    t = Math.floor(t / 32);
+  }
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  let rand = "";
+  for (const b of bytes) rand += CROCKFORD[b % 32];
+  return time + rand;
+}
 
 export const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 export type LifecyclePhase = (typeof LIFECYCLE_PHASES)[number];

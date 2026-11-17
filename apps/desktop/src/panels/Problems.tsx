@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { validate, type Problem } from "@vastitecture/core";
 import { dispatch, model, registry, select, set, useModel, useRegistryVersion } from "../state";
 import { t } from "../i18n";
@@ -9,10 +9,30 @@ export function useProblems(): Problem[] {
   const views = useModel((ws) => ws.views);
   const mappings = useModel((ws) => ws.mappings);
   const v = useRegistryVersion();
+  const [fromPlugins, setFromPlugins] = useState<Problem[]>([]);
+  // Validators contributed by plugins run in their sandbox, so they are asynchronous.
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const out: Problem[] = [];
+      for (const val of registry.validators.values()) {
+        try {
+          out.push(...(await val.run(model.state)));
+        } catch (e) {
+          out.push({ code: "validator-failed", severity: "warning", message: `Validator ${val.id} failed: ${e instanceof Error ? e.message : e}`, target: { kind: "workspace" } });
+        }
+      }
+      if (!cancelled) setFromPlugins(out);
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [elements, relationships, views, mappings, v]);
   return useMemo(() => {
     const order = { error: 0, warning: 1, info: 2 };
-    return validate(model.state, registry).sort((a, b) => order[a.severity] - order[b.severity]);
-  }, [elements, relationships, views, mappings, v]);
+    return [...validate(model.state, registry), ...fromPlugins].sort((a, b) => order[a.severity] - order[b.severity]);
+  }, [elements, relationships, views, mappings, v, fromPlugins]);
 }
 
 const ICON = { error: "⛔", warning: "⚠", info: "ℹ" };

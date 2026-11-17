@@ -11,6 +11,7 @@ import { CommandPalette } from "./panels/CommandPalette";
 import { AboutDialog, ConflictDialog, ReviewDialog, WorkspaceDialog } from "./panels/Dialogs";
 import { pages } from "./pages/registry";
 import "./pages";
+import { PluginApproval } from "./pages/Plugins";
 import { extensions } from "./extensions";
 import { t } from "./i18n";
 import { importFiles, importInputs, runExporter } from "./io";
@@ -202,6 +203,7 @@ export function App() {
       {pasting && <PasteImport onClose={() => setPasting(false)} />}
       {about && <AboutDialog onClose={() => setAbout(false)} />}
       <ConflictDialog />
+      <PluginApproval />
       {!!s.loadIssues.length && (
         <div className="panel" role="alert" style={{ position: "fixed", left: 12, bottom: 12, zIndex: 30, border: "1px solid var(--danger)", borderRadius: 6, padding: 10, maxWidth: 520 }}>
           <strong className="sev-error">{t("{count} file(s) could not be read", { count: s.loadIssues.length })}</strong>

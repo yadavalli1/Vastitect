@@ -14,7 +14,7 @@ import {
   type WorkspaceFS,
 } from "@vastitecture/core";
 import { LocalStorageFS, lastWorkspace } from "./platform";
-import { activateBuiltins, registry } from "./plugins";
+import { activateBuiltins, installInBrowser, loadInstalledPlugins, registry } from "./plugins";
 import { t } from "./i18n";
 import { buildSample } from "./sample";
 
@@ -192,6 +192,7 @@ export async function boot() {
   const existing = Object.keys(await fs.readAll()).length > 0;
   // Zero-config start: first launch opens the sample workspace.
   await openWorkspace(fs, existing ? undefined : buildSample());
+  void loadInstalledPlugins();
 }
 
 export function setTheme(theme: "light" | "dark") {
@@ -207,4 +208,4 @@ export function select(elements: Id[] = [], relationships: Id[] = []) {
 }
 
 /** Test hook: lets Playwright inspect the model without scraping the DOM. */
-(window as unknown as Record<string, unknown>).__vastitecture = { model, app, registry };
+(window as unknown as Record<string, unknown>).__vastitecture = { model, app, registry, installPlugin: installInBrowser };

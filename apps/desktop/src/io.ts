@@ -8,11 +8,12 @@ import { t } from "./i18n";
 const ext = (name: string) => name.slice(name.lastIndexOf(".") + 1).toLowerCase();
 
 /** Pick the importer for a file: extension first, then each candidate's content sniff. */
-export function importerFor(input: ImportInput): Importer | undefined {
+export async function importerFor(input: ImportInput): Promise<Importer | undefined> {
   const all = [...registry.importers.values()];
   const byExt = all.filter((i) => i.extensions.includes(ext(input.name)));
-  const pool = byExt.length ? byExt : all;
-  return pool.find((i) => i.detect?.(input)) ?? (byExt.length === 1 ? byExt[0] : byExt.find((i) => !i.detect));
+  // Importers may live in a sandbox, so their content sniff is asynchronous.
+  for (const i of byExt.length ? byExt : all) if (i.detect && (await i.detect(input))) return i;
+  return byExt.length === 1 ? byExt[0] : byExt.find((i) => !i.detect);
 }
 
 function merge(patches: ModelPatch[]): ModelPatch {
@@ -33,7 +34,7 @@ export async function importInputs(inputs: ImportInput[], importerId?: string) {
   const patches: ModelPatch[] = [];
   const used = new Set<string>();
   for (const input of inputs) {
-    const imp = importerId ? registry.importers.get(importerId) : importerFor(input);
+    const imp = importerId ? registry.importers.get(importerId) : await importerFor(input);
     if (!imp) {
       toast(t("No importer recognises {name}", { name: input.name }));
       continue;

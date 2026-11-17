@@ -24,7 +24,7 @@ export function commands(): AppCommand[] {
     { id: "save", label: t("Save now"), keys: "Mod+S", run: saveNow },
     { id: "about", label: t("About Vastitecture"), run: () => void window.dispatchEvent(new CustomEvent("vastitecture:about")) },
     { id: "new-workspace", label: t("New or open workspace…"), run: () => set({ newOpen: true }) },
-    { id: "theme", label: s.theme === "dark" ? t("Switch to light theme") : t("Switch to dark theme"), run: () => setTheme(s.theme === "dark" ? "light" : "dark") },
+    { id: "theme", label: s.theme === "dark" ? t("Switch to light theme") : t("Switch to dark theme"), run: () => (document.documentElement.removeAttribute("style"), setTheme(s.theme === "dark" ? "light" : "dark")) },
     { id: "code", label: t("Toggle diagram as code"), keys: "Mod+E", run: () => set({ codeOpen: !s.codeOpen }) },
     { id: "problems", label: t("Toggle problems panel"), keys: "Mod+J", run: () => set({ problemsOpen: !s.problemsOpen }) },
     { id: "present", label: t("Toggle presentation mode"), keys: "Mod+Shift+P", run: () => set({ presenting: !s.presenting }) },
@@ -52,6 +52,15 @@ export function commands(): AppCommand[] {
       { id: "group-ann", label: t("Add annotation group"), run: () => addAnnotation(v, "group", { x: 40, y: 40 }) },
     );
   }
+  for (const th of registry.themes.values())
+    list.push({
+      id: "theme-" + th.id,
+      label: t("Theme: {name}", { name: th.label }),
+      run: () => {
+        setTheme(th.dark ? "dark" : "light");
+        for (const [k, v] of Object.entries(th.vars)) document.documentElement.style.setProperty(k, v);
+      },
+    });
   for (const fn of extra) list.push(...fn());
   return list;
 }

@@ -160,7 +160,7 @@ export interface Importer {
   label: string;
   extensions: string[];
   /** Cheap content sniff used when several importers share an extension. */
-  detect?(input: ImportInput): boolean;
+  detect?(input: ImportInput): boolean | Promise<boolean>;
   import(input: ImportInput, ws: Workspace): Promise<ModelPatch> | ModelPatch;
 }
 
@@ -225,8 +225,10 @@ export interface Theme {
 export interface SidePanel {
   id: string;
   title: string;
-  /** HTML document rendered in a sandboxed iframe. */
-  html: string;
+  /** Static HTML shown in a sandboxed, script-less iframe. */
+  html?: string;
+  /** Or: produce the HTML from the current model; called again whenever the model changes. */
+  render?(ws: Workspace): string | Promise<string>;
 }
 
 type Unregister = () => void;

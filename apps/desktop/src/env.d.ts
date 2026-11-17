@@ -10,3 +10,7 @@ declare module "monaco-editor/esm/vs/editor/editor.worker?worker" {
   export default WorkerFactory;
 }
 declare const __APP_VERSION__: string;
+declare module "*?worker" {
+  const WorkerFactory: new () => Worker;
+  export default WorkerFactory;
+}

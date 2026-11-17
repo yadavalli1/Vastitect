@@ -6,12 +6,14 @@ import { pages } from "./registry";
 import { MappingsPage } from "./Mappings";
 import { ReportsPage } from "./Reports";
 import { RepositoryPage } from "./Repository";
+import { PluginsPage } from "./Plugins";
 import { t } from "../i18n";
 
 pages.push(
   { id: "reports", label: () => t("Catalogs and matrices"), icon: "▦", render: () => <ReportsPage /> },
   { id: "repository", label: () => t("Architecture repository"), icon: "🗂", render: () => <RepositoryPage /> },
   { id: "mappings", label: () => t("Cross-notation mapping"), icon: "⇄", render: () => <MappingsPage /> },
+  { id: "plugins", label: () => t("Plugins"), icon: "🧩", render: () => <PluginsPage /> },
 );
 
 // Views whose viewpoint is a form (e.g. the Bounded Context Canvas) are drawn as a card instead of a node canvas.
