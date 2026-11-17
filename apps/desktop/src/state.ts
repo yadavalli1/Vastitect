@@ -56,6 +56,7 @@ interface AppState {
   cameFrom: Record<Id, Id>;
   /** Bumped when post-import layout finishes (lets tests and UI wait for it). */
   layoutDone?: number;
+  searchOpen?: boolean;
   /** ADR open on the decisions page. */
   openAdr?: string;
 }
@@ -228,3 +229,15 @@ export function select(elements: Id[] = [], relationships: Id[] = []) {
 
 /** Test hook: lets Playwright inspect the model without scraping the DOM. */
 (window as unknown as Record<string, unknown>).__vastitecture = { model, app, registry, installPlugin: installInBrowser };
+
+/** Desktop: full-text hits from the SQLite FTS5 index over the workspace files, mapped back to entities. */
+export async function fullTextSearch(query: string): Promise<{ kind: "element" | "view" | "adr"; id: string; snippet: string }[]> {
+  if (!isTauri || !persister || !query.trim()) return [];
+  const root = app.getState().fsLabel;
+  const { invoke } = await import("@tauri-apps/api/core");
+  const hits = await invoke<{ path: string; snippet: string }[]>("search", { root, query }).catch(() => []);
+  return hits.flatMap((h) => {
+    const e = persister!.entityAt(h.path);
+    return e ? [{ ...e, snippet: h.snippet }] : [];
+  });
+}

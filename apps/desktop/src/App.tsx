@@ -8,6 +8,7 @@ import { Sidebar } from "./panels/Sidebar";
 import { Properties } from "./panels/Properties";
 import { Problems, useProblems } from "./panels/Problems";
 import { CommandPalette } from "./panels/CommandPalette";
+import { SearchDialog } from "./panels/Search";
 import { AboutDialog, ConflictDialog, ReviewDialog, WorkspaceDialog } from "./panels/Dialogs";
 import { pages } from "./pages/registry";
 import "./pages";
@@ -127,6 +128,7 @@ function Toolbar({ problemCount }: { problemCount: number }) {
       <button className={`btn${s.problemsOpen ? " on" : ""}`} aria-pressed={s.problemsOpen} onClick={() => set({ problemsOpen: !s.problemsOpen })}>{t("Problems")} ({problemCount})</button>
       <button className="btn" onClick={() => set({ presenting: true })}>{t("Present")}</button>
       <button className="btn" onClick={() => setTheme(s.theme === "dark" ? "light" : "dark")} aria-label={t("Toggle theme")}>{s.theme === "dark" ? "☀" : "☾"}</button>
+      <button className="btn" onClick={() => set({ searchOpen: true })} aria-label={t("Search")} title={t("Search (Ctrl+P)")}>🔎</button>
       <button className="btn" onClick={() => set({ commandOpen: true })}>⌘K</button>
       <button className="btn" aria-label={t("About")} title={t("About")} onClick={() => window.dispatchEvent(new CustomEvent("vastitecture:about"))}>?</button>
     </header>
@@ -198,6 +200,7 @@ export function App() {
       </div>
       {s.presenting && <button className="btn" style={{ position: "fixed", top: 8, right: 8, zIndex: 30 }} onClick={() => set({ presenting: false })}>{t("Exit presentation")}</button>}
       {s.commandOpen && <CommandPalette />}
+      {s.searchOpen && <SearchDialog />}
       {s.newOpen && <WorkspaceDialog />}
       {s.review && <ReviewDialog />}
       {pasting && <PasteImport onClose={() => setPasting(false)} />}

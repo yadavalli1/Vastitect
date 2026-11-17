@@ -93,3 +93,25 @@ test("capability heat map, lifecycle roadmap and decisions", async ({ page }) =>
   expect(adr).toMatchObject({ id: "0003", status: "proposed" });
   expect(adr.elements.map((id: string) => ws.elements[id].name)).toEqual(["Warehouse System"]);
 });
+
+test("search everything, and move around a diagram with the keyboard", async ({ page }) => {
+  await page.keyboard.press("Control+p");
+  await page.getByRole("dialog", { name: "Search" }).getByLabel("Search").fill("warehouse");
+  const results = page.getByTestId("search-results");
+  await expect(results.getByRole("option", { name: /^Warehouse System/ })).toBeVisible();
+  await expect(results.getByRole("option", { name: /0002 Replace the Warehouse System/ })).toBeVisible();
+  await results.getByRole("option", { name: /^Warehouse System/ }).click();
+  await expect(page.getByTestId("properties").getByLabel("Name")).toHaveValue("Warehouse System");
+
+  // arrow keys walk the diagram, Shift+arrows nudge
+  await page.getByTestId("canvas").focus();
+  const sel = () => page.evaluate(() => (window as any).__vastitecture.app.getState().selection.elements);
+  const start = await sel();
+  await page.keyboard.press("ArrowUp");
+  await expect.poll(sel).not.toEqual(start);
+  const moved = (await sel())[0];
+  const pos = () => page.evaluate((id) => { const s = (window as any).__vastitecture; const v = s.model.state.views[s.app.getState().activeView]; return v.nodes.find((n: any) => n.element === id).x; }, moved);
+  const x0 = await pos();
+  await page.keyboard.press("Shift+ArrowRight");
+  expect(await pos()).toBe(x0 + 10);
+});

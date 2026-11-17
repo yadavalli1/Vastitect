@@ -328,6 +328,47 @@ function Inner({ viewId }: { viewId: Id }) {
     } else if (e.key === "Tab" && sel.elements.length === 1) {
       createConnected(viewId, sel.elements[0]);
       e.preventDefault();
+    } else if (e.key.startsWith("Arrow") && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      // Keyboard navigation: with Shift, nudge the selection; otherwise move to the nearest node in that direction,
+      // preferring nodes connected to the current one.
+      const v = model.state.views[viewId];
+      const dx = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+      const dy = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+      e.preventDefault();
+      if (e.shiftKey && sel.elements.length) {
+        const nodesSel = v.nodes.filter((n) => sel.elements.includes(n.element));
+        dispatch({ type: "updateNodes", view: viewId, nodes: nodesSel.map((n) => ({ element: n.element, x: n.x + dx * 10, y: n.y + dy * 10 })) }, t("Move"), { coalesce: true });
+        return;
+      }
+      const rects = absoluteRects(v);
+      const hidden = hiddenNodes(v);
+      const cur = sel.elements[0] && rects.get(sel.elements[0]);
+      const candidates = v.nodes.filter((n) => !hidden.has(n.element) && n.element !== sel.elements[0]);
+      if (!cur) {
+        const first = candidates.sort((a, b) => rects.get(a.element)!.y - rects.get(b.element)!.y || rects.get(a.element)!.x - rects.get(b.element)!.x)[0];
+        if (first) select([first.element]);
+        return;
+      }
+      const cx = cur.x + cur.w / 2, cy = cur.y + cur.h / 2;
+      const linked = new Set(Object.values(model.state.relationships).flatMap((r) => (r.source === sel.elements[0] ? [r.target] : r.target === sel.elements[0] ? [r.source] : [])));
+      const best = candidates
+        .map((n) => {
+          const r = rects.get(n.element)!;
+          const ox = r.x + r.w / 2 - cx, oy = r.y + r.h / 2 - cy;
+          const along = ox * dx + oy * dy;
+          const across = Math.abs(ox * dy) + Math.abs(oy * dx);
+          return { n, along, score: along + across * 2 - (linked.has(n.element) ? 200 : 0) };
+        })
+        .filter((c) => c.along > 5)
+        .sort((a, b) => a.score - b.score)[0];
+      if (best) {
+        select([best.n.element]);
+        const r = rects.get(best.n.element)!;
+        rf.setCenter(r.x + r.w / 2, r.y + r.h / 2, { duration: 150, zoom: rf.getZoom() });
+        const el = model.state.elements[best.n.element];
+        const live = document.getElementById("canvas-live");
+        if (live && el) live.textContent = `${registry.elementType(el.type)?.name ?? el.type}: ${el.name}${linked.has(best.n.element) ? ", " + t("connected") : ""}`;
+      }
     } else if (e.key === "Escape") {
       select();
       setChooser(null);
@@ -371,6 +412,9 @@ function Inner({ viewId }: { viewId: Id }) {
       className="w-full h-full"
       data-testid="canvas"
       tabIndex={0}
+      role="application"
+      aria-roledescription={t("diagram")}
+      aria-label={t("Diagram {name}. Arrow keys move between elements, Shift+arrows move them, Enter renames, Tab adds a connected element, a letter searches the palette.", { name: view?.name ?? "" })}
       onMouseMove={(e) => (pointer.current = { x: e.clientX, y: e.clientY })}
       onDragOver={(e) => (e.preventDefault(), (e.dataTransfer.dropEffect = "copy"))}
       onDrop={onDrop}
@@ -420,6 +464,7 @@ function Inner({ viewId }: { viewId: Id }) {
         </ReactFlow>
       </CanvasContext.Provider>
       {chooser && <Chooser {...chooser} onClose={() => (setChooser(null), wrap.current?.focus())} />}
+      <div id="canvas-live" aria-live="polite" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }} />
     </div>
   );
 }

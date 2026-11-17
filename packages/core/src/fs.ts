@@ -123,4 +123,11 @@ export class Persister {
     this.index = { ...this.index, ...r.index };
     return r.workspace;
   }
+
+  /** Which entity a workspace file holds (for full-text search hits). */
+  entityAt(path: string): { kind: "element" | "view" | "adr"; id: string } | undefined {
+    for (const [id, p] of Object.entries(this.index))
+      if (p === path) return id.startsWith("adr:") ? { kind: "adr", id: id.slice(4) } : path.startsWith("views/") ? { kind: "view", id } : { kind: "element", id };
+    return undefined;
+  }
 }

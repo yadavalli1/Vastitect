@@ -22,6 +22,7 @@ export function commands(): AppCommand[] {
     { id: "undo", label: t("Undo"), keys: "Mod+Z", run: undo },
     { id: "redo", label: t("Redo"), keys: "Mod+Shift+Z", run: redo },
     { id: "save", label: t("Save now"), keys: "Mod+S", run: saveNow },
+    { id: "search", label: t("Search everything"), keys: "Mod+P", run: () => set({ searchOpen: true }) },
     { id: "about", label: t("About Vastitecture"), run: () => void window.dispatchEvent(new CustomEvent("vastitecture:about")) },
     { id: "new-workspace", label: t("New or open workspace…"), run: () => set({ newOpen: true }) },
     { id: "theme", label: s.theme === "dark" ? t("Switch to light theme") : t("Switch to dark theme"), run: () => (document.documentElement.removeAttribute("style"), setTheme(s.theme === "dark" ? "light" : "dark")) },
@@ -76,6 +77,7 @@ export function handleShortcut(e: KeyboardEvent): boolean {
   const k = e.key.toLowerCase();
   if (k === "k") return (set({ commandOpen: !app.getState().commandOpen }), true);
   if (k === "s") return (void saveNow(), true);
+  if (k === "p" && !e.shiftKey) return (set({ searchOpen: !app.getState().searchOpen }), true);
   if (inField) return false;
   const combo = `Mod+${e.shiftKey ? "Shift+" : ""}${k.toUpperCase()}`;
   if (k === "y") return (redo(), true);
