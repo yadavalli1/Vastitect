@@ -1,0 +1,26 @@
+[package]
+name = "vastitecture"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Vastitecture desktop shell"
+
+[lib]
+name = "vastitecture_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+notify = "6"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+vastitecture-shell = { path = "../../../crates/shell" }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"

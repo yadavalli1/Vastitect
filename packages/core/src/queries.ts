@@ -74,13 +74,13 @@ export interface ImpliedRelationship {
  * Relationships between hidden descendants lifted to their nearest visible ancestors:
  * a link between two containers implies one between their parent systems.
  */
-export function impliedRelationships(ws: Workspace, view: View, reg?: Registry): ImpliedRelationship[] {
-  const visible = new Set(view.nodes.map((n) => n.element));
+export function impliedRelationships(ws: Workspace, view: View, reg?: Registry, visibleOverride?: Set<Id>): ImpliedRelationship[] {
+  const visible = visibleOverride ?? new Set(view.nodes.map((n) => n.element));
   const shown = new Set(view.edges.map((e) => e.relationship));
   const explicitPairs = new Set<string>();
   for (const id of shown) {
     const r = ws.relationships[id];
-    if (r) explicitPairs.add(`${r.source}>${r.target}`);
+    if (r && visible.has(r.source) && visible.has(r.target)) explicitPairs.add(`${r.source}>${r.target}`);
   }
   const lift = (id: Id) => (visible.has(id) ? id : ancestors(ws, id).find((a) => visible.has(a)));
   const out = new Map<string, ImpliedRelationship>();

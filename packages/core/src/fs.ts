@@ -113,4 +113,14 @@ export class Persister {
     this.index = { ...this.index, ...index };
     return { workspace, issues, conflicts };
   }
+
+  /** The workspace with one file's content replaced; used to take "theirs" when resolving a conflict. */
+  withFile(current: Workspace, path: string, content: string | undefined): Workspace {
+    const { files } = toFiles(current, this.index);
+    if (content === undefined) delete files[path];
+    else files[path] = content;
+    const r = fromFiles(files);
+    this.index = { ...this.index, ...r.index };
+    return r.workspace;
+  }
 }

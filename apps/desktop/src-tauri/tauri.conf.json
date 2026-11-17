@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Vastitecture",
+  "version": "0.1.0",
+  "identifier": "dev.vastitecture.app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "label": "main", "title": "Vastitecture", "width": 1440, "height": 900, "minWidth": 900, "minHeight": 600 }],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "msi", "appimage", "deb"],
+    "category": "DeveloperTool",
+    "shortDescription": "Model architecture in ArchiMate, C4, DDD and TOGAF in one workspace",
+    "license": "MIT",
+    "createUpdaterArtifacts": true,
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "endpoints": ["https://github.com/yadavalli1/Vastitect/releases/latest/download/latest.json"]
+    }
+  }
+}

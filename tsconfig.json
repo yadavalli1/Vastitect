@@ -12,7 +12,7 @@
     "allowImportingTsExtensions": false,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["vite/client", "node"]
+    "types": ["node"]
   },
   "include": ["packages", "apps/desktop/src", "apps/desktop/e2e", "apps/desktop/*.ts"],
   "exclude": ["**/node_modules", "**/dist", "**/template/**"]

@@ -1,0 +1,39 @@
+{
+  "name": "@vastitecture/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "e2e": "playwright test",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.2",
+    "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-dialog": "^2.2.0",
+    "@vastitecture/core": "workspace:*",
+    "@vastitecture/layout": "workspace:*",
+    "@vastitecture/notation-generic": "workspace:*",
+    "@vastitecture/plugin-sdk": "workspace:*",
+    "@vastitecture/render": "workspace:*",
+    "@xyflow/react": "^12.3.5",
+    "elkjs": "^0.9.3",
+    "monaco-editor": "^0.52.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@tauri-apps/cli": "^2.1.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.0.0",
+    "vite": "^6.0.3"
+  }
+}
