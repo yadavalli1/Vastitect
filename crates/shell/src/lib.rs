@@ -341,3 +341,56 @@ mod plugin_tests {
         assert!(read_plugin_file(Path::new(&found[0].dir), "../not-a-plugin/x").is_err());
     }
 }
+
+/// Only read-only AWS CLI operations may run: describe-*, list-* and sts get-caller-identity.
+pub fn aws_read_only(service: &str, operation: &str) -> bool {
+    let word = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    word(service)
+        && word(operation)
+        && (operation.starts_with("describe-") || operation.starts_with("list-") || (service == "sts" && operation == "get-caller-identity"))
+}
+
+/// Run one read-only AWS CLI call with the user's local profile and return its JSON output.
+pub fn aws_cli(service: &str, operation: &str, profile: Option<&str>, region: Option<&str>) -> Result<String> {
+    if !aws_read_only(service, operation) {
+        return Err(format!("Refusing AWS operation {service} {operation}: only read-only describe-/list- calls are allowed"));
+    }
+    let profile_ok = |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c));
+    let mut cmd = Command::new("aws");
+    cmd.args([service, operation, "--output", "json", "--no-cli-pager"]);
+    if let Some(p) = profile.filter(|p| !p.is_empty()) {
+        if !profile_ok(p) {
+            return Err("Invalid profile name".into());
+        }
+        cmd.args(["--profile", p]);
+    }
+    if let Some(r) = region.filter(|r| !r.is_empty()) {
+        if !profile_ok(r) {
+            return Err("Invalid region".into());
+        }
+        cmd.args(["--region", r]);
+    }
+    let out = cmd.output().map_err(|e| format!("Could not run the AWS CLI ({e}). Is it installed and on PATH?"))?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}
+
+#[cfg(test)]
+mod aws_tests {
+    use super::*;
+
+    #[test]
+    fn only_read_only_aws_calls_are_allowed() {
+        assert!(aws_read_only("ec2", "describe-instances"));
+        assert!(aws_read_only("lambda", "list-functions"));
+        assert!(aws_read_only("sts", "get-caller-identity"));
+        assert!(!aws_read_only("ec2", "terminate-instances"));
+        assert!(!aws_read_only("s3", "rm"));
+        assert!(!aws_read_only("iam", "get-caller-identity"));
+        assert!(!aws_read_only("ec2", "describe-instances --dry-run"));
+        assert!(!aws_read_only("ec2;rm", "describe-x"));
+        assert!(aws_cli("ec2", "run-instances", None, None).is_err());
+    }
+}

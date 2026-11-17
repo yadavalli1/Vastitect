@@ -1,0 +1,1 @@
+{ "Subnets": [{ "SubnetId": "subnet-0b2", "VpcId": "vpc-0a1", "AvailabilityZone": "eu-west-1a", "CidrBlock": "10.0.1.0/24", "Tags": [{ "Key": "Name", "Value": "private-a" }] }] }

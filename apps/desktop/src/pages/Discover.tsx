@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { reconcilePatch, type ImportInput } from "@vastitecture/core";
 import { model, registry, set, toast, useRegistryVersion } from "../state";
-import { pickFiles } from "../platform";
+import { isTauri, pickFiles } from "../platform";
+import { AWS_COMMANDS, MANIFESTS } from "@vastitecture/connectors-discovery";
 import { t } from "../i18n";
 
 const FOLDER_FILES = /\.(ya?ml|json|tfstate)$/i;
+const SKIP = new Set(["node_modules", "vendor", "dist", "build", "target", "__pycache__", ".venv", "venv"]);
 
-/** Read every YAML/JSON file under a folder the user picks (Chromium and the desktop app). */
-async function pickFolderFiles(): Promise<ImportInput[]> {
+/**
+ * Read a folder the user picks (Chromium and the desktop app). Specs, manifests and state files are read;
+ * other files are listed by name only (enough to detect languages), so large repositories stay cheap.
+ */
+async function pickFolderFiles(namesToo: boolean): Promise<ImportInput[]> {
   const picker = (window as unknown as { showDirectoryPicker?: (o?: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
   if (!picker) return [];
   const root = await picker({ mode: "read" }).catch(() => undefined);
@@ -15,12 +20,34 @@ async function pickFolderFiles(): Promise<ImportInput[]> {
   const out: ImportInput[] = [];
   const walk = async (dir: FileSystemDirectoryHandle, prefix: string) => {
     for await (const [name, h] of (dir as unknown as { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries()) {
-      if (name.startsWith(".") || name === "node_modules") continue;
-      if (h.kind === "directory") await walk(h as FileSystemDirectoryHandle, `${prefix}${name}/`);
-      else if (FOLDER_FILES.test(name) && out.length < 2000) out.push({ name: prefix + name, text: await (await (h as FileSystemFileHandle).getFile()).text() });
+      if (SKIP.has(name) || out.length >= 20000) continue;
+      const path = `${prefix}${name}`;
+      if (h.kind === "directory") {
+        if (!name.startsWith(".") || name === ".git") await walk(h as FileSystemDirectoryHandle, `${path}/`);
+        continue;
+      }
+      if (prefix.endsWith(".git/") && name !== "config") continue;
+      const wanted = FOLDER_FILES.test(name) || MANIFESTS.test(path);
+      if (wanted) out.push({ name: path, text: await (await (h as FileSystemFileHandle).getFile()).text() });
+      else if (namesToo) out.push({ name: path, text: "" });
     }
   };
-  await walk(root, "");
+  await walk(root, root.name + "/");
+  return out;
+}
+
+/** Desktop: run the read-only AWS CLI calls with the user's local profile. */
+async function readAwsProfile(profile: string, region: string): Promise<ImportInput[]> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  const out: ImportInput[] = [];
+  for (const [service, operation] of AWS_COMMANDS) {
+    try {
+      out.push({ name: `${service}-${operation}.json`, text: await invoke<string>("aws_cli", { service, operation, profile, region }) });
+    } catch (e) {
+      out.push({ name: `${service}-${operation}.error`, text: "" });
+      console.warn(`aws ${service} ${operation}:`, e);
+    }
+  }
   return out;
 }
 
@@ -65,17 +92,33 @@ export function DiscoverPage() {
         <h2 style={{ marginTop: 0 }}>{c.label}</h2>
         {c.description && <p className="muted">{c.description}</p>}
         <p className="muted" style={{ fontSize: 12 }}>{t("Read-only: nothing is changed until you review the result and press Apply. Running it again later updates the same elements.")}</p>
+        {c.id === "aws" && (
+          <div>
+            <label className="label" htmlFor="cf-profile">{t("AWS profile")}</label>
+            <input id="cf-profile" className="input" placeholder="default" value={config.profile ?? ""} onChange={(e) => setConfig({ ...config, profile: e.target.value })} />
+            <p className="muted" style={{ fontSize: 12 }}>
+              {isTauri
+                ? t("Uses your installed AWS CLI and local credentials; only read-only describe and list calls are made.")
+                : t("In the browser, run these read-only commands and pick their JSON output:")}
+              {!isTauri && <code style={{ display: "block", whiteSpace: "pre-wrap" }}>{AWS_COMMANDS.map((x) => `aws ${x.join(" ")} > ${x.join("-")}.json`).join("\n")}</code>}
+            </p>
+          </div>
+        )}
         {c.fields.map((f) =>
           f.type === "files" ? (
             <div key={f.key}>
               <div className="label">{f.label}</div>
               <div className="flex gap-2 items-center">
                 <button className="btn" onClick={async () => setFiles([...files, ...(await pickFiles(".yaml,.yml,.json,.tfstate", true))])}>{t("Add files…")}</button>
-                {"showDirectoryPicker" in window && <button className="btn" onClick={async () => setFiles([...files, ...(await pickFolderFiles())])}>{t("Add a folder…")}</button>}
+                {"showDirectoryPicker" in window && <button className="btn" onClick={async () => setFiles([...files, ...(await pickFolderFiles(c.id === "git"))])}>{t("Add a folder…")}</button>}
+                {c.id === "aws" && isTauri && (
+                  <button className="btn" onClick={async () => setFiles([...files, ...(await readAwsProfile(config.profile ?? "", config.region ?? ""))])}>{t("Read from my AWS profile")}</button>
+                )}
                 {!!files.length && <button className="btn ghost" onClick={() => setFiles([])}>{t("Clear")}</button>}
               </div>
               <ul data-testid="discover-files" style={{ margin: "6px 0", paddingLeft: 18, maxHeight: 160, overflow: "auto" }}>
-                {files.map((x, i) => <li key={i}>{x.name}</li>)}
+                {files.filter((x) => x.text).slice(0, 200).map((x, i) => <li key={i}>{x.name}</li>)}
+                {files.some((x) => !x.text) && <li className="muted">{t("+ {count} other files (names only)", { count: files.filter((x) => !x.text).length })}</li>}
               </ul>
             </div>
           ) : (

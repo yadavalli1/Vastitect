@@ -153,3 +153,43 @@ describe("re-running a connector", () => {
     expect(con.nodes.filter((n) => n.parent === con.subject)).toHaveLength(4);
   });
 });
+
+import { readdirSync } from "node:fs";
+import { discoverAws, discoverGit } from "./index";
+
+describe("AWS", () => {
+  it("turns read-only CLI output into account, network and service nodes", () => {
+    const dir = new URL("../../../../fixtures/discovery/aws/", import.meta.url).pathname;
+    const patch = discoverAws(readdirSync(dir).map((f) => file(dir + f, f)), { region: "eu-west-1" });
+    const ws = apply(patch);
+    valid(ws);
+    const by = (n: string) => Object.values(ws.elements).find((e) => e.name === n)!;
+    expect(by("api-1").parent).toBe(by("private-a").id);
+    expect(by("private-a").parent).toBe(by("shop-vpc").id);
+    expect(by("shop-vpc").parent).toBe(by("AWS account 123456789012").id);
+    expect(by("orders-db")).toMatchObject({ type: "c4:InfrastructureNode", parent: by("shop-vpc").id, properties: { kind: "Database" } });
+    expect(names(ws)).not.toContain("i-0dead");
+    expect(names(ws)).toEqual(expect.arrayContaining(["notify-customer", "order-events", "shop-assets", "prod-eu"]));
+    expect(patch.report![0]).toBe("AWS: 8 resource(s) in account 123456789012");
+  });
+});
+
+describe("Git repository", () => {
+  it("detects languages, dependencies and the remote, and links them to an element", () => {
+    const files = [
+      { name: "shop/.git/config", text: '[remote "origin"]\n\turl = git@github.com:acme/shop.git\n' },
+      { name: "shop/package.json", text: JSON.stringify({ dependencies: { react: "18", express: "4" }, devDependencies: { vitest: "2" } }) },
+      { name: "shop/api/requirements.txt", text: "fastapi==0.110\nuvicorn[standard]>=0.29 # server\n" },
+      ...Array.from({ length: 30 }, (_, i) => ({ name: `shop/src/f${i}.ts`, text: "" })),
+      ...Array.from({ length: 10 }, (_, i) => ({ name: `shop/api/m${i}.py`, text: "" })),
+      ...Array.from({ length: 500 }, (_, i) => ({ name: `shop/node_modules/x/i${i}.js`, text: "" })),
+    ];
+    const patch = discoverGit(files, { element: "Web App" });
+    const e = patch.elements![0];
+    expect(e).toMatchObject({ name: "Web App", properties: { languages: ["TypeScript 75%", "Python 25%"], technology: "TypeScript", dependencies: ["express", "fastapi", "react", "uvicorn"], repository: "https://github.com/acme/shop" }, links: [{ kind: "repo", href: "https://github.com/acme/shop" }] });
+    // an existing "Web App" container is updated rather than duplicated
+    const existing = apply({ elements: [{ id: "existing", type: "c4:Container", name: "Web App", tags: [], links: [], properties: { owner: "x" } }] });
+    const re = reconcilePatch(existing, patch);
+    expect(re.elements![0]).toMatchObject({ id: "existing", properties: { owner: "x", technology: "TypeScript" } });
+  });
+});

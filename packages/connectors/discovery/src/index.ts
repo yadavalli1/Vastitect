@@ -4,8 +4,12 @@ import { discoverCompose } from "./compose";
 import { discoverKubernetes } from "./kubernetes";
 import { discoverTerraform } from "./terraform";
 import { discoverBackstage } from "./backstage";
+import { discoverGit } from "./git";
+import { discoverAws } from "./aws";
 
-export { discoverApis, discoverCompose, discoverKubernetes, discoverTerraform, discoverBackstage };
+export { discoverApis, discoverCompose, discoverKubernetes, discoverTerraform, discoverBackstage, discoverGit, discoverAws };
+export { AWS_COMMANDS } from "./aws";
+export { MANIFESTS } from "./git";
 
 /**
  * Read-only discovery from files the user picks. None of these connectors touch the network:
@@ -49,6 +53,20 @@ export default definePlugin({
       description: "catalog-info.yaml entities become systems, components, APIs, resources and owners.",
       fields: [files],
       discover: (i) => discoverBackstage(i.files),
+    });
+    ctx.connectors.register({
+      id: "git",
+      label: "Git repository",
+      description: "Pick a repository's folder to link it to an element with its languages, declared dependencies and remote URL.",
+      fields: [files, { key: "element", label: "Element to link (name; created if missing)", type: "string" }, { key: "repo", label: "Repository URL (optional)", type: "string" }],
+      discover: (i) => discoverGit(i.files, i.config),
+    });
+    ctx.connectors.register({
+      id: "aws",
+      label: "AWS (read-only)",
+      description: "Account, VPCs, subnets, instances, databases, functions, load balancers, buckets and queues, from read-only AWS CLI output.",
+      fields: [files, { key: "region", label: "Region", type: "string", placeholder: "eu-west-1" }, { key: "environment", label: "Environment", type: "string", placeholder: "Production" }],
+      discover: (i) => discoverAws(i.files, i.config),
     });
   },
 });

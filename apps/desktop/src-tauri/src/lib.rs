@@ -162,6 +162,14 @@ fn plugin_read(dir: String, file: String) -> Result<String, String> {
     shell::read_plugin_file(Path::new(&dir), &file)
 }
 
+/// Read-only AWS discovery through the user's own AWS CLI and local profile.
+#[tauri::command]
+async fn aws_cli(service: String, operation: String, profile: Option<String>, region: Option<String>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || shell::aws_cli(&service, &operation, profile.as_deref(), region.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -187,7 +195,8 @@ pub fn run() {
             secret_set,
             http_fetch,
             plugins_list,
-            plugin_read
+            plugin_read,
+            aws_cli
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vastitecture");

@@ -1,0 +1,1 @@
+{ "Functions": [{ "FunctionName": "notify-customer", "Runtime": "nodejs20.x" }] }
