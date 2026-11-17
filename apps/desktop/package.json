@@ -14,6 +14,7 @@
     "@radix-ui/react-dialog": "^1.1.2",
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-dialog": "^2.2.0",
+    "@vastitecture/connectors-discovery": "workspace:*",
     "@vastitecture/core": "workspace:*",
     "@vastitecture/io-archimate": "workspace:*",
     "@vastitecture/io-cml": "workspace:*",

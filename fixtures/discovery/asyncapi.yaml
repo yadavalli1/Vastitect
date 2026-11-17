@@ -1,0 +1,20 @@
+# Written for Vastitecture's tests (AsyncAPI 2.6 and 3.0 shapes).
+asyncapi: 2.6.0
+info:
+  title: Order Events
+  version: 1.2.0
+  description: Events published by the order service.
+servers:
+  prod: { url: kafka.example.com:9092, protocol: kafka }
+channels:
+  orders.placed:
+    subscribe: { message: { name: OrderPlaced } }
+  orders.cancel-requests:
+    publish: { message: { name: CancelOrder } }
+---
+asyncapi: 3.0.0
+info: { title: Shipping Events, version: 0.1.0 }
+channels:
+  shipped: { address: shipping.shipped }
+operations:
+  announceShipped: { action: send, channel: { $ref: "#/channels/shipped" } }

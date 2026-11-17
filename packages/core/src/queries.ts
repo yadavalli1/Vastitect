@@ -230,13 +230,25 @@ export function reconcilePatch(ws: Workspace, patch: ModelPatch): ModelPatch {
     return match ? { ...match, ...next, id: match.id, label: next.label ?? match.label } : next;
   });
   const relMap = new Map((patch.relationships ?? []).map((r, i) => [r.id, relationships[i].id]));
-  const views = (patch.views ?? []).map((v) => ({
-    ...v,
-    subject: v.subject && m(v.subject),
-    nodes: v.nodes.map((n) => ({ ...n, element: m(n.element), parent: n.parent && m(n.parent) })),
-    edges: v.edges.map((e) => ({ ...e, relationship: relMap.get(e.relationship) ?? e.relationship })),
-  }));
-  return { ...patch, elements, relationships, views };
+  const layout = new Set(patch.layout ?? []);
+  const views = (patch.views ?? []).map((v) => {
+    const fresh = {
+      ...v,
+      subject: v.subject && m(v.subject),
+      nodes: v.nodes.map((n) => ({ ...n, element: m(n.element), ...(n.parent ? { parent: m(n.parent) } : {}) })),
+      edges: v.edges.map((e) => ({ ...e, relationship: relMap.get(e.relationship) ?? e.relationship })),
+    };
+    // A view with the same name and viewpoint is the one an earlier run created: keep its layout, add what is new.
+    const cur = Object.values(ws.views).find((x) => x.notation === v.notation && x.viewpoint === v.viewpoint && x.name === v.name);
+    if (!cur) return fresh;
+    layout.delete(v.id);
+    const known = new Set(cur.nodes.map((n) => n.element));
+    const added = fresh.nodes.filter((n) => !known.has(n.element));
+    if (added.length) layout.add(cur.id);
+    const edges = new Set(cur.edges.map((e) => e.relationship));
+    return { ...cur, nodes: [...cur.nodes, ...added], edges: [...cur.edges, ...fresh.edges.filter((e) => !edges.has(e.relationship))] };
+  });
+  return { ...patch, elements, relationships, views, ...(patch.layout ? { layout: [...layout] } : {}) };
 }
 
 /** Free-text + field search over elements. Supports `type:`, `tag:`, `owner:`, `phase:` and `no:owner|description`. */

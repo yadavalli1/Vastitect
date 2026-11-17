@@ -1,0 +1,12 @@
+# Written for Vastitecture's tests.
+apiVersion: v2
+name: shop
+description: The online shop.
+version: 0.7.0
+dependencies:
+  - name: postgresql
+    version: 15.x.x
+    repository: oci://registry.example.com/charts
+  - name: kafka
+    version: 26.x.x
+    repository: oci://registry.example.com/charts

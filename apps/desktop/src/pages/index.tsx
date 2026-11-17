@@ -7,12 +7,14 @@ import { MappingsPage } from "./Mappings";
 import { ReportsPage } from "./Reports";
 import { RepositoryPage } from "./Repository";
 import { PluginsPage } from "./Plugins";
+import { DiscoverPage } from "./Discover";
 import { t } from "../i18n";
 
 pages.push(
   { id: "reports", label: () => t("Catalogs and matrices"), icon: "▦", render: () => <ReportsPage /> },
   { id: "repository", label: () => t("Architecture repository"), icon: "🗂", render: () => <RepositoryPage /> },
   { id: "mappings", label: () => t("Cross-notation mapping"), icon: "⇄", render: () => <MappingsPage /> },
+  { id: "discover", label: () => t("Discover"), icon: "🔍", render: () => <DiscoverPage /> },
   { id: "plugins", label: () => t("Plugins"), icon: "🧩", render: () => <PluginsPage /> },
 );
 
