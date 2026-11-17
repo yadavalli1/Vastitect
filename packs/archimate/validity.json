@@ -1,0 +1,6 @@
+{
+ "$comment": "Relationship validity. The table is NOT shipped: it must come from a licensed copy of the specification. Until then every relationship is allowed. To enable checking, set mode to \"table\" and fill table as { sourceType: { targetType: [relationshipType, ...] } } using the ids from elements.json and relationships.json, or mode \"rules\" with [{source,target,types}] where source/target may be a type id, \"*\" or \"category:<Domain>\".",
+ "mode": "permissive",
+ "note": "Relationship validity is not checked yet (permissive mode). Supply the validity table in packs/archimate/validity.json.",
+ "table": {}
+}

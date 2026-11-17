@@ -83,6 +83,11 @@ function buildNodes(view: View, selected: Set<Id>): Node[] {
   return out;
 }
 
+function nestedIn(view: View, child: Id, ancestor: Id): boolean {
+  for (let p = view.nodes.find((n) => n.element === child)?.parent, i = 0; p && i < 50; p = view.nodes.find((n) => n.element === p)?.parent, i++) if (p === ancestor) return true;
+  return false;
+}
+
 function buildEdges(view: View, selected: Set<Id>): Edge[] {
   const ws = model.state;
   const hidden = hiddenNodes(view);
@@ -91,6 +96,8 @@ function buildEdges(view: View, selected: Set<Id>): Edge[] {
   for (const e of view.edges) {
     const r = ws.relationships[e.relationship];
     if (!r || e.hidden || !visible.has(r.source) || !visible.has(r.target)) continue;
+    // Nesting already shows the relationship between a node and the node it sits inside.
+    if (nestedIn(view, r.source, r.target) || nestedIn(view, r.target, r.source)) continue;
     out.push({ id: r.id, type: "model", source: r.source, target: r.target, selected: selected.has(r.id), data: { relationship: r.id, order: e.order, waypoints: e.waypoints }, zIndex: 1000 });
   }
   if (view.properties.showImplied !== false)
@@ -203,7 +210,7 @@ function Inner({ viewId }: { viewId: Id }) {
           const mine = model.state.elements[node.id];
           const myType = mine && (presentationType(model.state, mine, v.notation, registry) ?? mine.type);
           if (Array.isArray(def?.container)) return def.container.includes(myType);
-          return def?.container || (v.nodes.some((k) => k.parent === n.element) && mine?.parent === n.element);
+          return def?.container || def?.nestable || (v.nodes.some((k) => k.parent === n.element) && mine?.parent === n.element);
         })
         .map((n) => ({ n, r: rects.get(n.element)! }))
         .filter(({ r: c }) => cx > c.x && cx < c.x + c.w && cy > c.y && cy < c.y + c.h)

@@ -33,6 +33,9 @@
       ],
       "@vastitecture/layout": [
         "packages/layout/src/index.ts"
+      ],
+      "@vastitecture/notation-archimate": [
+        "packages/notations/archimate/src/index.ts"
       ]
     }
   },

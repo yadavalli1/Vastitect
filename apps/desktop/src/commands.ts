@@ -22,6 +22,7 @@ export function commands(): AppCommand[] {
     { id: "undo", label: t("Undo"), keys: "Mod+Z", run: undo },
     { id: "redo", label: t("Redo"), keys: "Mod+Shift+Z", run: redo },
     { id: "save", label: t("Save now"), keys: "Mod+S", run: saveNow },
+    { id: "about", label: t("About Vastitecture"), run: () => void window.dispatchEvent(new CustomEvent("vastitecture:about")) },
     { id: "new-workspace", label: t("New or open workspace…"), run: () => set({ newOpen: true }) },
     { id: "theme", label: s.theme === "dark" ? t("Switch to light theme") : t("Switch to dark theme"), run: () => setTheme(s.theme === "dark" ? "light" : "dark") },
     { id: "code", label: t("Toggle diagram as code"), keys: "Mod+E", run: () => set({ codeOpen: !s.codeOpen }) },

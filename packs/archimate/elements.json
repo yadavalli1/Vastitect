@@ -1,0 +1,363 @@
+{
+ "$comment": "ArchiMate 4 element list. UNVERIFIED: derived from the public summaries of the April 2026 release (60 -> 42 concepts, seven removed, behaviour and collaboration merged into a Common Domain) because the specification itself was not available when this file was written. Check against a licensed copy of the ArchiMate 4 Specification (C260) and edit this file; no code change is needed. Names only, no specification text.",
+ "verified": false,
+ "domains": {
+  "Common": "#e5e7eb",
+  "Motivation": "#d9c7f2",
+  "Strategy": "#f3d9a4",
+  "Business": "#fbe7a1",
+  "Application": "#b9dcf5",
+  "Technology": "#c3e6b4",
+  "Implementation": "#f6c5c0"
+ },
+ "elements": [
+  {
+   "id": "archimate:Role",
+   "name": "Role",
+   "domain": "Common",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "◍"
+  },
+  {
+   "id": "archimate:Collaboration",
+   "name": "Collaboration",
+   "domain": "Common",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "⚭"
+  },
+  {
+   "id": "archimate:Path",
+   "name": "Path",
+   "domain": "Common",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "⇿"
+  },
+  {
+   "id": "archimate:Process",
+   "name": "Process",
+   "domain": "Common",
+   "aspect": "behaviour",
+   "shape": "rounded",
+   "icon": "➔"
+  },
+  {
+   "id": "archimate:Function",
+   "name": "Function",
+   "domain": "Common",
+   "aspect": "behaviour",
+   "shape": "rounded",
+   "icon": "⌃"
+  },
+  {
+   "id": "archimate:Service",
+   "name": "Service",
+   "domain": "Common",
+   "aspect": "behaviour",
+   "shape": "pill",
+   "icon": "⬭"
+  },
+  {
+   "id": "archimate:Event",
+   "name": "Event",
+   "domain": "Common",
+   "aspect": "behaviour",
+   "shape": "chevron",
+   "icon": "◗"
+  },
+  {
+   "id": "archimate:Grouping",
+   "name": "Grouping",
+   "domain": "Common",
+   "aspect": "composite",
+   "shape": "group",
+   "icon": "▭"
+  },
+  {
+   "id": "archimate:Location",
+   "name": "Location",
+   "domain": "Common",
+   "aspect": "composite",
+   "shape": "rect",
+   "icon": "⌖"
+  },
+  {
+   "id": "archimate:Stakeholder",
+   "name": "Stakeholder",
+   "domain": "Motivation",
+   "aspect": "motivation",
+   "shape": "octagon",
+   "icon": "☺"
+  },
+  {
+   "id": "archimate:Driver",
+   "name": "Driver",
+   "domain": "Motivation",
+   "aspect": "motivation",
+   "shape": "octagon",
+   "icon": "✹"
+  },
+  {
+   "id": "archimate:Assessment",
+   "name": "Assessment",
+   "domain": "Motivation",
+   "aspect": "motivation",
+   "shape": "octagon",
+   "icon": "⌕"
+  },
+  {
+   "id": "archimate:Goal",
+   "name": "Goal",
+   "domain": "Motivation",
+   "aspect": "motivation",
+   "shape": "octagon",
+   "icon": "◎"
+  },
+  {
+   "id": "archimate:Outcome",
+   "name": "Outcome",
+   "domain": "Motivation",
+   "aspect": "motivation",
+   "shape": "octagon",
+   "icon": "➹"
+  },
+  {
+   "id": "archimate:Principle",
+   "name": "Principle",
+   "domain": "Motivation",
+   "aspect": "motivation",
+   "shape": "octagon",
+   "icon": "❗"
+  },
+  {
+   "id": "archimate:Requirement",
+   "name": "Requirement",
+   "domain": "Motivation",
+   "aspect": "motivation",
+   "shape": "octagon",
+   "icon": "▱"
+  },
+  {
+   "id": "archimate:Meaning",
+   "name": "Meaning",
+   "domain": "Motivation",
+   "aspect": "motivation",
+   "shape": "ellipse",
+   "icon": "☁"
+  },
+  {
+   "id": "archimate:Value",
+   "name": "Value",
+   "domain": "Motivation",
+   "aspect": "motivation",
+   "shape": "ellipse",
+   "icon": "⬯"
+  },
+  {
+   "id": "archimate:Resource",
+   "name": "Resource",
+   "domain": "Strategy",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "▤"
+  },
+  {
+   "id": "archimate:Capability",
+   "name": "Capability",
+   "domain": "Strategy",
+   "aspect": "behaviour",
+   "shape": "rounded",
+   "icon": "▦"
+  },
+  {
+   "id": "archimate:ValueStream",
+   "name": "Value Stream",
+   "domain": "Strategy",
+   "aspect": "behaviour",
+   "shape": "chevron",
+   "icon": "⋙"
+  },
+  {
+   "id": "archimate:CourseOfAction",
+   "name": "Course Of Action",
+   "domain": "Strategy",
+   "aspect": "behaviour",
+   "shape": "rounded",
+   "icon": "◉"
+  },
+  {
+   "id": "archimate:BusinessActor",
+   "name": "Business Actor",
+   "domain": "Business",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "웃"
+  },
+  {
+   "id": "archimate:BusinessInterface",
+   "name": "Business Interface",
+   "domain": "Business",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "⊸"
+  },
+  {
+   "id": "archimate:BusinessObject",
+   "name": "Business Object",
+   "domain": "Business",
+   "aspect": "passive",
+   "shape": "rect",
+   "icon": "▬"
+  },
+  {
+   "id": "archimate:Product",
+   "name": "Product",
+   "domain": "Business",
+   "aspect": "composite",
+   "shape": "rect",
+   "icon": "▣"
+  },
+  {
+   "id": "archimate:ApplicationComponent",
+   "name": "Application Component",
+   "domain": "Application",
+   "aspect": "active",
+   "shape": "component",
+   "icon": "⧉"
+  },
+  {
+   "id": "archimate:ApplicationInterface",
+   "name": "Application Interface",
+   "domain": "Application",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "⊸"
+  },
+  {
+   "id": "archimate:DataObject",
+   "name": "Data Object",
+   "domain": "Application",
+   "aspect": "passive",
+   "shape": "rect",
+   "icon": "▬"
+  },
+  {
+   "id": "archimate:Node",
+   "name": "Node",
+   "domain": "Technology",
+   "aspect": "active",
+   "shape": "node3d",
+   "icon": "❒"
+  },
+  {
+   "id": "archimate:Device",
+   "name": "Device",
+   "domain": "Technology",
+   "aspect": "active",
+   "shape": "node3d",
+   "icon": "⌨"
+  },
+  {
+   "id": "archimate:SystemSoftware",
+   "name": "System Software",
+   "domain": "Technology",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "◌"
+  },
+  {
+   "id": "archimate:TechnologyInterface",
+   "name": "Technology Interface",
+   "domain": "Technology",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "⊸"
+  },
+  {
+   "id": "archimate:CommunicationNetwork",
+   "name": "Communication Network",
+   "domain": "Technology",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "⇄"
+  },
+  {
+   "id": "archimate:Artifact",
+   "name": "Artifact",
+   "domain": "Technology",
+   "aspect": "passive",
+   "shape": "document",
+   "icon": "🗎"
+  },
+  {
+   "id": "archimate:Equipment",
+   "name": "Equipment",
+   "domain": "Technology",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "⚙"
+  },
+  {
+   "id": "archimate:Facility",
+   "name": "Facility",
+   "domain": "Technology",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "🏭"
+  },
+  {
+   "id": "archimate:DistributionNetwork",
+   "name": "Distribution Network",
+   "domain": "Technology",
+   "aspect": "active",
+   "shape": "rect",
+   "icon": "⇆"
+  },
+  {
+   "id": "archimate:Material",
+   "name": "Material",
+   "domain": "Technology",
+   "aspect": "passive",
+   "shape": "hexagon",
+   "icon": "⬡"
+  },
+  {
+   "id": "archimate:WorkPackage",
+   "name": "Work Package",
+   "domain": "Implementation",
+   "aspect": "behaviour",
+   "shape": "rounded",
+   "icon": "▧"
+  },
+  {
+   "id": "archimate:Deliverable",
+   "name": "Deliverable",
+   "domain": "Implementation",
+   "aspect": "passive",
+   "shape": "document",
+   "icon": "▤"
+  },
+  {
+   "id": "archimate:Plateau",
+   "name": "Plateau",
+   "domain": "Implementation",
+   "aspect": "composite",
+   "shape": "node3d",
+   "icon": "≡"
+  },
+  {
+   "id": "archimate:Junction",
+   "name": "Junction",
+   "domain": "Common",
+   "aspect": "connector",
+   "shape": "ellipse",
+   "icon": "",
+   "size": [
+    18,
+    18
+   ]
+  }
+ ]
+}

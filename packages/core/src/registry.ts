@@ -48,6 +48,8 @@ export interface ElementTypeDef {
   size?: [number, number];
   /** Can visually contain child nodes: any (true) or only the listed presentation types. */
   container?: boolean | TypeId[];
+  /** Other nodes may be dropped inside it, without it being drawn as a boundary. */
+  nestable?: boolean;
   properties?: PropertyDef[];
   /** Alternative looks chosen by a property value, e.g. a database-kind container drawn as a cylinder. */
   variants?: { property: string; values: Record<string, { shape?: ShapeKind; fill?: string; badge?: string }> }[];

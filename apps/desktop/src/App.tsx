@@ -8,7 +8,7 @@ import { Sidebar } from "./panels/Sidebar";
 import { Properties } from "./panels/Properties";
 import { Problems, useProblems } from "./panels/Problems";
 import { CommandPalette } from "./panels/CommandPalette";
-import { ConflictDialog, ReviewDialog, WorkspaceDialog } from "./panels/Dialogs";
+import { AboutDialog, ConflictDialog, ReviewDialog, WorkspaceDialog } from "./panels/Dialogs";
 import { pages } from "./pages/registry";
 import { extensions } from "./extensions";
 import { t } from "./i18n";
@@ -126,6 +126,7 @@ function Toolbar({ problemCount }: { problemCount: number }) {
       <button className="btn" onClick={() => set({ presenting: true })}>{t("Present")}</button>
       <button className="btn" onClick={() => setTheme(s.theme === "dark" ? "light" : "dark")} aria-label={t("Toggle theme")}>{s.theme === "dark" ? "☀" : "☾"}</button>
       <button className="btn" onClick={() => set({ commandOpen: true })}>⌘K</button>
+      <button className="btn" aria-label={t("About")} title={t("About")} onClick={() => window.dispatchEvent(new CustomEvent("vastitecture:about"))}>?</button>
     </header>
   );
 }
@@ -148,10 +149,13 @@ export function App() {
   useRegistryVersion();
   const problems = useProblems();
   const [pasting, setPasting] = useState(false);
+  const [about, setAbout] = useState(false);
   useEffect(() => {
     const open = () => setPasting(true);
+    const openAbout = () => setAbout(true);
     window.addEventListener("vastitecture:paste-import", open);
-    return () => window.removeEventListener("vastitecture:paste-import", open);
+    window.addEventListener("vastitecture:about", openAbout);
+    return () => (window.removeEventListener("vastitecture:paste-import", open), window.removeEventListener("vastitecture:about", openAbout));
   }, []);
   useEffect(() => {
     const h = (e: KeyboardEvent) => handleShortcut(e) && e.preventDefault();
@@ -195,6 +199,7 @@ export function App() {
       {s.newOpen && <WorkspaceDialog />}
       {s.review && <ReviewDialog />}
       {pasting && <PasteImport onClose={() => setPasting(false)} />}
+      {about && <AboutDialog onClose={() => setAbout(false)} />}
       <ConflictDialog />
       {!!s.loadIssues.length && (
         <div className="panel" role="alert" style={{ position: "fixed", left: 12, bottom: 12, zIndex: 30, border: "1px solid var(--danger)", borderRadius: 6, padding: 10, maxWidth: 520 }}>

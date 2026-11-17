@@ -1,0 +1,105 @@
+{
+ "$comment": "ArchiMate relationship types as carried over from 3.2, each with optional multiplicity. UNVERIFIED for ArchiMate 4: check whether any relationship was removed or renamed.",
+ "verified": false,
+ "relationships": [
+  {
+   "id": "archimate:Composition",
+   "name": "Composition",
+   "line": "solid",
+   "sourceMarker": "filledDiamond",
+   "targetMarker": "none",
+   "dependency": "forward",
+   "rollup": true
+  },
+  {
+   "id": "archimate:Aggregation",
+   "name": "Aggregation",
+   "line": "solid",
+   "sourceMarker": "diamond",
+   "targetMarker": "none",
+   "dependency": "forward",
+   "rollup": true
+  },
+  {
+   "id": "archimate:Assignment",
+   "name": "Assignment",
+   "line": "solid",
+   "sourceMarker": "filledCircle",
+   "targetMarker": "arrow",
+   "dependency": "reverse",
+   "rollup": true
+  },
+  {
+   "id": "archimate:Realization",
+   "name": "Realization",
+   "line": "dashed",
+   "sourceMarker": "none",
+   "targetMarker": "triangle",
+   "dependency": "reverse",
+   "rollup": true
+  },
+  {
+   "id": "archimate:Serving",
+   "name": "Serving",
+   "line": "solid",
+   "sourceMarker": "none",
+   "targetMarker": "open",
+   "dependency": "reverse",
+   "rollup": true
+  },
+  {
+   "id": "archimate:Access",
+   "name": "Access",
+   "line": "dotted",
+   "sourceMarker": "none",
+   "targetMarker": "open",
+   "dependency": "forward",
+   "rollup": true
+  },
+  {
+   "id": "archimate:Influence",
+   "name": "Influence",
+   "line": "dashed",
+   "sourceMarker": "none",
+   "targetMarker": "open",
+   "dependency": "reverse",
+   "rollup": true
+  },
+  {
+   "id": "archimate:Association",
+   "name": "Association",
+   "line": "solid",
+   "sourceMarker": "none",
+   "targetMarker": "none",
+   "dependency": "none",
+   "rollup": true
+  },
+  {
+   "id": "archimate:Triggering",
+   "name": "Triggering",
+   "line": "solid",
+   "sourceMarker": "none",
+   "targetMarker": "arrow",
+   "dependency": "reverse",
+   "rollup": true
+  },
+  {
+   "id": "archimate:Flow",
+   "name": "Flow",
+   "line": "dashed",
+   "sourceMarker": "none",
+   "targetMarker": "arrow",
+   "dependency": "reverse",
+   "rollup": true
+  },
+  {
+   "id": "archimate:Specialization",
+   "name": "Specialization",
+   "line": "solid",
+   "sourceMarker": "none",
+   "targetMarker": "triangle",
+   "dependency": "forward",
+   "rollup": false
+  }
+ ]
+}

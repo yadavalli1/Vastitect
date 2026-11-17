@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       "@vastitecture/core": p("./packages/core/src/index.ts"),
       "@vastitecture/plugin-sdk": p("./packages/plugin-sdk/src/index.ts"),
+      "@vastitecture/notation-archimate": p("./packages/notations/archimate/src/index.ts"),
       "@vastitecture/render": p("./packages/render/src/index.ts"),
     },
   },

@@ -123,6 +123,11 @@ export function viewToSvg(ws: Workspace, view: View, reg: Registry, theme: SvgTh
   for (const e of view.edges) {
     const r = ws.relationships[e.relationship];
     if (!r || e.hidden) continue;
+    const inside = (c: string, a: string) => {
+      for (let p = view.nodes.find((n) => n.element === c)?.parent, i = 0; p && i < 50; p = view.nodes.find((n) => n.element === p)?.parent, i++) if (p === a) return true;
+      return false;
+    };
+    if (inside(r.source, r.target) || inside(r.target, r.source)) continue;
     const text = [e.order !== undefined ? `${e.order}.` : "", r.label ?? "", r.technology ? `[${r.technology}]` : ""].filter(Boolean).join(" ");
     drawEdge(r.source, r.target, text || undefined, r.type, e.waypoints);
   }
