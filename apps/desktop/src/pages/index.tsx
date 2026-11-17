@@ -8,9 +8,19 @@ import { ReportsPage } from "./Reports";
 import { RepositoryPage } from "./Repository";
 import { PluginsPage } from "./Plugins";
 import { DiscoverPage } from "./Discover";
+import { FactSheetsPage } from "./FactSheets";
+import { CapabilitiesPage } from "./Capabilities";
+import { RoadmapPage } from "./Roadmap";
+import { ImpactPage } from "./Impact";
+import { AdrsPage } from "./Adrs";
 import { t } from "../i18n";
 
 pages.push(
+  { id: "inventory", label: () => t("Fact sheets"), icon: "☰", render: () => <FactSheetsPage /> },
+  { id: "capabilities", label: () => t("Capability map"), icon: "▤", render: () => <CapabilitiesPage /> },
+  { id: "roadmap", label: () => t("Lifecycle roadmap"), icon: "⇶", render: () => <RoadmapPage /> },
+  { id: "impact", label: () => t("Impact analysis"), icon: "⚡", render: () => <ImpactPage /> },
+  { id: "adrs", label: () => t("Decisions"), icon: "✎", render: () => <AdrsPage /> },
   { id: "reports", label: () => t("Catalogs and matrices"), icon: "▦", render: () => <ReportsPage /> },
   { id: "repository", label: () => t("Architecture repository"), icon: "🗂", render: () => <RepositoryPage /> },
   { id: "mappings", label: () => t("Cross-notation mapping"), icon: "⇄", render: () => <MappingsPage /> },

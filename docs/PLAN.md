@@ -15,7 +15,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 **Done when:** I can create a workspace, draw boxes and arrows, close and reopen it, and see clean YAML diffs in Git.
 
-- [x] Monorepo scaffold: pnpm workspaces, TS project references, ESLint (incl. core-purity and no-literal-strings rules), Vitest, Playwright, CI for lint + test
+- [x] Monorepo scaffold: pnpm workspaces, TypeScript, Vitest, Playwright
+- [ ] ESLint (core-purity and no-literal-strings rules) and CI for lint + test (moved to M6)
 - [x] `core`: Zod schemas for Element, Relationship, View, Workspace; generated JSON Schema
 - [x] `core`: immutable store, command reducers with inverses, composite commands, undo/redo
 - [x] `core`: stable YAML serialiser and loader; `WorkspaceFS` interface with memory implementation

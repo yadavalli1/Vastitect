@@ -87,3 +87,4 @@ table.grid td input, table.grid td select { width: 100%; border: 0; background: 
 .vedge-label { position: absolute; font-size: 11px; padding: 0 4px; background: color-mix(in srgb, var(--bg) 85%, transparent); border-radius: 3px; pointer-events: all; white-space: nowrap; }
 .vedge.dim { opacity: 0.12; }
 .present .chrome { display: none !important; }
+.adr-body h2 { font-size: 16px; margin: 14px 0 4px; } .adr-body p { margin: 6px 0; } .adr-body code { background: var(--panel-2); padding: 0 3px; }

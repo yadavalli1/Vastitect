@@ -183,7 +183,7 @@ function ElementProps({ el }: { el: Element }) {
       {!others.length && <div className="muted">{t("Not shown in any view")}</div>}
       {!!linked.length && <div className="label">{t("Decisions")}</div>}
       {linked.map((a) => (
-        <div key={a.id} className="row" style={{ paddingLeft: 4 }} role="button" tabIndex={0} onClick={() => set({ page: "adrs" })}>
+        <div key={a.id} className="row" style={{ paddingLeft: 4 }} role="button" tabIndex={0} onClick={() => set({ page: "adrs", openAdr: a.id })}>
           {a.id} {a.title} <span className="chip" style={{ marginLeft: "auto" }}>{a.status}</span>
         </div>
       ))}

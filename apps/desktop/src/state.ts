@@ -56,6 +56,8 @@ interface AppState {
   cameFrom: Record<Id, Id>;
   /** Bumped when post-import layout finishes (lets tests and UI wait for it). */
   layoutDone?: number;
+  /** ADR open on the decisions page. */
+  openAdr?: string;
 }
 
 export const useApp = create<AppState>(() => ({
