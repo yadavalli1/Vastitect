@@ -410,6 +410,7 @@
   "User folder": "User folder",
   "Uses your installed AWS CLI and local credentials; only read-only describe and list calls are made.": "Uses your installed AWS CLI and local credentials; only read-only describe and list calls are made.",
   "Vastitecture": "Vastitecture",
+  "Vastitecture could not start": "Vastitecture could not start",
   "Version {version} is installed. Restart Vastitecture to use it.": "Version {version} is installed. Restart Vastitecture to use it.",
   "View": "View",
   "View name": "View name",

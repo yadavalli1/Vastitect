@@ -25,7 +25,10 @@ export function writePdf(pages: PdfPage[], info: { title?: string } = {}): Uint8
     push("\nendobj\n");
   };
   const pdfString = (s: string) => `(${s.replace(/[\\()]/g, "\\$&").replace(/[^\x20-\x7e]/g, "?")})`;
-  push("%PDF-1.4\n%\xe2\xe3\xcf\xd3\n");
+  // Built at run time: a literal PDF signature in the bundle makes the desktop webview's
+  // content sniffing serve the whole JavaScript chunk as application/pdf.
+  const magic = ["%", "PDF-1.4"].join("");
+  push(magic + "\n%\xe2\xe3\xcf\xd3\n");
   const pageIds = pages.map((_, i) => 4 + i * 3);
   obj(1, ["<< /Type /Catalog /Pages 2 0 R >>"]);
   obj(2, [`<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pages.length} >>`]);
@@ -45,7 +48,7 @@ export function writePdf(pages: PdfPage[], info: { title?: string } = {}): Uint8
   const xref = size;
   push(`xref\n0 ${total}\n0000000000 65535 f \n`);
   for (let n = 1; n < total; n++) push(`${String(offsets[n]).padStart(10, "0")} 00000 n \n`);
-  push(`trailer\n<< /Size ${total} /Root 1 0 R /Info 3 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  push(`trailer\n<< /Size ${total} /Root 1 0 R /Info 3 0 R >>\nstartxref\n${xref}\n${["%%", "EOF"].join("")}\n`);
   const out = new Uint8Array(size);
   let at = 0;
   for (const c of chunks) out.set(c, at), (at += c.length);

@@ -28,13 +28,14 @@ const changed = () => {
 export function activateBuiltins(): Promise<void> {
   const worker = new BuiltinWorker();
   return new Promise((resolve, reject) => {
-    worker.onerror = (e) => reject(new Error(e.message));
+    const timer = setTimeout(() => reject(new Error("The built-in plugins did not start within 20 seconds (worker did not respond)")), 20000);
+    worker.onerror = (e) => (clearTimeout(timer), reject(new Error(`Built-in plugin worker failed: ${e.message || "could not load"}`)));
     worker.onmessage = (event: MessageEvent<{ t: string; manifests: PluginManifest[] }>) => {
       if (event.data.t !== "hello") return;
       const host = new PluginHost(worker as unknown as Port, registry, event.data.manifests, hostServices);
       host.onChange = changed;
       for (const m of event.data.manifests) loaded.set(m.id, { manifest: m, origin: "builtin", host, worker });
-      Promise.all(event.data.manifests.map((m) => host.ready(m.id))).then(() => resolve(), reject);
+      Promise.all(event.data.manifests.map((m) => host.ready(m.id))).then(() => (clearTimeout(timer), resolve()), (e) => (clearTimeout(timer), reject(e)));
       worker.postMessage({ t: "go" });
     };
   });

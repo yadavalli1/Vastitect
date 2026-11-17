@@ -166,6 +166,13 @@ export function App() {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, []);
+  if (s.phase === "error")
+    return (
+      <div style={{ padding: 40 }} role="alert">
+        <h2>{t("Vastitecture could not start")}</h2>
+        <pre style={{ whiteSpace: "pre-wrap" }}>{s.bootError}</pre>
+      </div>
+    );
   if (s.phase === "loading") return <div style={{ padding: 40 }}>{t("Loading…")}</div>;
   const page = pages.find((p) => p.id === s.page);
   const real = problems.filter((p) => p.severity !== "info").length;

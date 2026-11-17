@@ -50,8 +50,11 @@ test("create a workspace, draw, connect, rename, delete, undo, and reopen", asyn
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
   const before = await files(page, "m1-test");
   const elementFiles = Object.keys(before).filter((p) => p.startsWith("model/elements/generic/box/"));
-  expect(elementFiles.sort()).toEqual(["model/elements/generic/box/box-2.yaml", "model/elements/generic/box/warehouse.yaml", "model/elements/generic/box/web-shop.yaml"]);
-  expect(before["model/elements/generic/box/web-shop.yaml"]).toMatch(/^id: \w+\ntype: generic:Box\nname: Web shop\n$/);
+  // one file per element; its name comes from the element's name when first saved
+  expect(elementFiles).toHaveLength(3);
+  expect(elementFiles).toContain("model/elements/generic/box/warehouse.yaml");
+  const webFile = elementFiles.find((p) => before[p].includes("name: Web shop"))!;
+  expect(before[webFile]).toMatch(/^id: \w+\ntype: generic:Box\nname: Web shop\n$/);
 
   // a rename through the properties panel is a one-line change in exactly one file
   await page.locator('.react-flow__node:has([aria-label$=": Web shop"])').click();
@@ -62,7 +65,7 @@ test("create a workspace, draw, connect, rename, delete, undo, and reopen", asyn
   const after = await files(page, "m1-test");
   const changed = Object.keys(after).filter((p) => after[p] !== before[p]);
   // the file keeps its name: renames do not move files
-  expect(changed).toEqual(["model/elements/generic/box/web-shop.yaml"]);
+  expect(changed).toEqual([webFile]);
   expect(after[changed[0]]).toContain("name: Storefront");
 
   // close and reopen

@@ -32,7 +32,8 @@ export interface Review {
 }
 
 interface AppState {
-  phase: "loading" | "ready";
+  phase: "loading" | "ready" | "error";
+  bootError?: string;
   fsLabel: string;
   page: Page;
   activeView?: Id;
