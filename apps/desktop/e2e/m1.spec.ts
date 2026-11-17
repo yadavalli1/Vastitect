@@ -102,3 +102,12 @@ test("outside edits to the workspace files reload into the open canvas", async (
   await expect(page.locator('[aria-label="Box: Pulled from Git"]')).toBeVisible();
   await other.close();
 });
+
+test("edits made just before a reload are not lost", async ({ page }) => {
+  await page.goto("/");
+  await newWorkspace(page, "m1-flush");
+  await newView(page, "Generic", "Quick");
+  await page.locator('[data-palette="generic:Box"]').click();
+  await page.reload(); // well inside the autosave delay
+  await expect(page.locator(".react-flow__node")).toHaveCount(1);
+});

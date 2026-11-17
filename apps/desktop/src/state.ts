@@ -13,7 +13,7 @@ import {
   type Workspace,
   type WorkspaceFS,
 } from "@vastitecture/core";
-import { LocalStorageFS, lastWorkspace } from "./platform";
+import { LocalStorageFS, isTauri, lastWorkspace } from "./platform";
 import { activateBuiltins, installInBrowser, loadInstalledPlugins, registry } from "./plugins";
 import { t } from "./i18n";
 import { buildSample } from "./sample";
@@ -184,7 +184,23 @@ export function blankWorkspace(name: string): Workspace {
   return { ...emptyWorkspace(name, [...registry.packs.keys()]), mappings: DEFAULT_MAPPINGS };
 }
 
+/** Never lose the last edits: flush the pending autosave when the window closes or reloads. */
+function flushOnExit() {
+  window.addEventListener("beforeunload", () => {
+    // Browser-storage writes complete within this task's microtasks, so this finishes before unload.
+    if (app.getState().saveState !== "saved") void saveNow();
+  });
+  document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && app.getState().saveState === "dirty" && void saveNow());
+  if (isTauri)
+    void import("@tauri-apps/api/window").then(({ getCurrentWindow }) =>
+      getCurrentWindow().onCloseRequested(async () => {
+        await saveNow();
+      }),
+    );
+}
+
 export async function boot() {
+  flushOnExit();
   await activateBuiltins();
   document.documentElement.dataset.theme = app.getState().theme;
   const name = lastWorkspace.get();

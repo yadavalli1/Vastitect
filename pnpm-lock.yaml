@@ -124,6 +124,8 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
 
+  packages/create-vastitecture-plugin: {}
+
   packages/io/archimate:
     dependencies:
       '@vastitecture/notation-archimate':

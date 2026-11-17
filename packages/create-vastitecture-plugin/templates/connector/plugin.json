@@ -1,0 +1,10 @@
+{
+  "id": "__ID__",
+  "name": "__NAME__",
+  "version": "0.1.0",
+  "apiVersion": "1.0.0",
+  "description": "Discovers a draft model from a service catalogue API.",
+  "entry": "index.js",
+  "capabilities": ["connector"],
+  "permissions": { "network": ["catalog.example.com"], "secrets": ["__SLUG__-token"] }
+}
