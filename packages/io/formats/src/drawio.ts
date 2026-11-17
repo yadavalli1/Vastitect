@@ -2,7 +2,7 @@ import { XMLParser } from "fast-xml-parser";
 import { makeElement, makeRelationship, makeView, type Annotation, type Element, type Id, type ModelPatch, type Relationship, type Workspace } from "@vastitecture/plugin-sdk";
 import { inflateRaw } from "./zip";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 const arr = <T>(x: T | T[] | undefined): T[] => (x === undefined ? [] : Array.isArray(x) ? x : [x]);
 const styleOf = (s: string) => Object.fromEntries(String(s ?? "").split(";").filter(Boolean).map((kv) => (kv.includes("=") ? [kv.slice(0, kv.indexOf("=")), kv.slice(kv.indexOf("=") + 1)] : [kv, "1"])));
 const plain = (html: unknown) =>

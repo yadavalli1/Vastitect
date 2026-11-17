@@ -163,7 +163,7 @@ export const TRADEMARKS = "ArchiMate® and TOGAF® are registered trademarks of 
 export function AboutDialog({ onClose }: { onClose(): void }) {
   return (
     <Modal title={t("About Vastitecture")} onClose={onClose}>
-      <p><strong>Vastitecture</strong> {__APP_VERSION__}</p>
+      <p><strong>{t("Vastitecture")}</strong> {__APP_VERSION__}</p>
       <p>{t("An open-source, local-first workspace for modelling architecture in ArchiMate, C4, DDD and TOGAF. Model once, view many.")}</p>
       <p>{t("No account, no server, no telemetry. The app makes no network calls unless you run a discovery connector or enable the AI assistant.")}</p>
       <p data-testid="trademarks">{t("ArchiMate® and TOGAF® are registered trademarks of The Open Group.")}</p>

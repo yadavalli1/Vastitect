@@ -10,11 +10,18 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "e2e": "pnpm --filter @vastitecture/desktop e2e",
-    "tauri": "pnpm --filter @vastitecture/desktop tauri"
+    "tauri": "pnpm --filter @vastitecture/desktop tauri",
+    "lint": "eslint .",
+    "i18n": "node scripts/extract-messages.mjs",
+    "schema": "node --experimental-strip-types scripts/build-schema.ts"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
+    "eslint": "9.17.0",
+    "eslint-plugin-react-hooks": "5.1.0",
+    "globals": "15.14.0",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.8",
-    "@types/node": "^22.10.0"
+    "typescript-eslint": "8.18.1",
+    "vitest": "^2.1.8"
   }
 }

@@ -2,7 +2,7 @@ import { XMLParser } from "fast-xml-parser";
 import type { Element, ModelPatch, Relationship } from "@vastitecture/plugin-sdk";
 import { migrateElementType, relationshipTypeIds } from "@vastitecture/notation-archimate";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 export type X = Record<string, any>;
 
 export function parseXml(text: string, arrays: string[]): X {

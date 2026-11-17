@@ -34,8 +34,8 @@ export function RoadmapPage() {
   const start = new Date(new Date(Math.min(now, ...dates)).getFullYear(), 0, 1).getTime();
   const end = new Date(new Date(Math.max(now + 365 * DAY, ...dates)).getFullYear() + 1, 0, 1).getTime();
   const pct = (ms: number) => ((ms - start) / (end - start)) * 100;
-  const years: number[] = [];
-  for (let y = new Date(start).getFullYear(); y < new Date(end).getFullYear(); y++) years.push(y);
+  const first = new Date(start).getFullYear();
+  const years = Array.from({ length: new Date(end).getFullYear() - first }, (_, i) => first + i);
   const segments = (e: Element) => {
     const d = e.lifecycle!.dates!;
     const known = LIFECYCLE_PHASES.filter((p) => d[p]).map((p) => ({ p, at: Date.parse(d[p]!) })).sort((a, b) => a.at - b.at);

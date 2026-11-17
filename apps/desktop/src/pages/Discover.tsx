@@ -95,7 +95,7 @@ export function DiscoverPage() {
         {c.id === "aws" && (
           <div>
             <label className="label" htmlFor="cf-profile">{t("AWS profile")}</label>
-            <input id="cf-profile" className="input" placeholder="default" value={config.profile ?? ""} onChange={(e) => setConfig({ ...config, profile: e.target.value })} />
+            <input id="cf-profile" className="input" placeholder={t("default")} value={config.profile ?? ""} onChange={(e) => setConfig({ ...config, profile: e.target.value })} />
             <p className="muted" style={{ fontSize: 12 }}>
               {isTauri
                 ? t("Uses your installed AWS CLI and local credentials; only read-only describe and list calls are made.")

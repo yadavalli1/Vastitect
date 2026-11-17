@@ -39,7 +39,7 @@ export function tableToXlsx(table: Table): Uint8Array {
   });
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 const arr = <T>(x: T | T[] | undefined): T[] => (x === undefined ? [] : Array.isArray(x) ? x : [x]);
 const colIndex = (ref: string) => {
   let n = 0;

@@ -87,7 +87,7 @@ function Toolbar({ problemCount }: { problemCount: number }) {
   const saveLabel = { saved: t("Saved"), dirty: t("Unsaved changes"), saving: t("Saving…"), error: t("Save failed") }[s.saveState];
   return (
     <header className="panel chrome flex items-center gap-1 border-b" style={{ padding: "5px 8px", flexWrap: "wrap" }} role="toolbar" aria-label={t("Main toolbar")}>
-      <button className="btn ghost" onClick={() => set({ newOpen: true })} title={s.fsLabel}><strong>Vastitecture</strong> · {name}</button>
+      <button className="btn ghost" onClick={() => set({ newOpen: true })} title={s.fsLabel}><strong>{t("Vastitecture")}</strong> · {name}</button>
       <span className="muted" data-testid="save-state" style={{ fontSize: 11, minWidth: 70 }}>{saveLabel}</span>
       <button className="btn" onClick={undo} disabled={!model.canUndo} aria-label={t("Undo")} title={t("Undo")}>↶</button>
       <button className="btn" onClick={redo} disabled={!model.canRedo} aria-label={t("Redo")} title={t("Redo")}>↷</button>
@@ -113,8 +113,8 @@ function Toolbar({ problemCount }: { problemCount: number }) {
           <button className={`btn${s.impact === "dependsOn" ? " on" : ""}`} aria-pressed={s.impact === "dependsOn"} title={t("Light up everything the selection depends on")} onClick={() => set({ impact: s.impact === "dependsOn" ? null : "dependsOn" })}>{t("Depends on")}</button>
           <button className={`btn${s.focus ? " on" : ""}`} aria-pressed={s.focus} onClick={() => set({ focus: !s.focus })}>{t("Focus")}</button>
           <button className={`btn${s.codeOpen ? " on" : ""}`} aria-pressed={s.codeOpen} onClick={() => set({ codeOpen: !s.codeOpen })}>{t("Code")}</button>
-          <button className="btn" onClick={() => void exportSvg(v)}>SVG</button>
-          <button className="btn" onClick={() => void exportPng(v)}>PNG</button>
+          <button className="btn" onClick={() => void exportSvg(v)}>{t("SVG")}</button>
+          <button className="btn" onClick={() => void exportPng(v)}>{t("PNG")}</button>
           <select className="btn" aria-label={t("Export")} value="" onChange={(e) => { const x = registry.exporters.get(e.target.value); if (x) void runExporter(x); }}>
             <option value="">{t("Export…")}</option>
             {[...registry.exporters.values()].map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}

@@ -99,25 +99,30 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 **Done when:** the sample workspace answers "what breaks if we retire X" and CI produces installers for macOS, Windows and Linux.
 
-- [ ] Fact sheets: table, inline edit, saved filters, bulk edit
-- [ ] Business capability map with heat-mapping
-- [ ] Lifecycle roadmap
-- [ ] Impact analysis query panel
-- [ ] ADRs: storage, linking, properties-panel display
-- [ ] Reports to CSV, Excel, Markdown
-- [ ] AWS and Git repository connectors
-- [ ] AI assistant (off by default): OpenAI-compatible endpoint, keychain storage, all changes as reviewable diffs
-- [ ] SQLite FTS5 search
-- [ ] Merge view for conflicting edits
-- [ ] Presentation mode, align/distribute
-- [ ] Packaging: macOS universal, Windows MSI, Linux AppImage and .deb via GitHub Actions; auto-updater
-- [ ] Accessibility audit; performance budget verified in CI
-- [ ] CONTRIBUTING.md, code of conduct
+- [x] Fact sheets: table, inline edit, saved filters, bulk edit
+- [x] Business capability map with heat-mapping
+- [x] Lifecycle roadmap
+- [x] Impact analysis query panel
+- [x] ADRs: storage, linking, properties-panel display, editor with preview
+- [x] Reports to CSV, Excel, Markdown
+- [x] AWS and Git repository connectors
+- [x] AI assistant (off by default): OpenAI-compatible endpoint, keychain storage, all changes as reviewable diffs
+- [x] Search: in-memory everywhere, SQLite FTS5 index on desktop
+- [x] Merge view for conflicting edits
+- [x] Presentation mode, align/distribute
+- [x] ESLint (core purity, translatable text) and CI for lint, types, unit, UI and Rust tests
+- [x] Release workflow: macOS universal, Windows MSI, Linux AppImage and .deb, optional signing and updater
+- [ ] TODO (owner): signing certificates and the updater key as repository secrets; the updater public key in tauri.conf.json
+- [ ] TODO: the release workflow has not run on GitHub's macOS and Windows runners yet; only the Linux .deb was built locally
+- [x] Accessibility: keyboard navigation between connected elements, labels on every node and control, no colour-only meaning
+- [ ] TODO: a screen-reader pass with NVDA/VoiceOver, and colour contrast checks in the dark theme
+- [x] Performance budget verified in tests (open 5,000 elements/200 views, 300-node layout, 300-node pan)
+- [x] CONTRIBUTING.md, code of conduct, README, published JSON Schema, message extraction
 
 ## Inputs needed from the owner
 
 | Item | Needed by | Blocking? |
 | --- | --- | --- |
-| Licence: repo currently has MIT, prompt says Apache-2.0 | M1 | No (defaulting to leave as is until confirmed) |
+| Licence: repo currently has MIT, prompt says Apache-2.0 | Now | No (left as MIT until you confirm) |
 | ArchiMate 4 relationship validity tables from a licensed spec | M3 | No (permissive mode ships meanwhile) |
 | Code-signing certificates (Apple Developer ID, Windows) and updater key as CI secrets | M6 | Only for *signed* installers; unsigned builds work without |

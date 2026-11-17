@@ -1,7 +1,7 @@
 import { makeElement, makeRelationship, makeView, type Element, type Id, type ModelPatch, type Relationship, type View, type Workspace } from "@vastitecture/plugin-sdk";
 import { SIZES, type DslOptions } from "./dsl";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 type J = Record<string, any>;
 
 const TAG_DEFAULTS = new Set(["Element", "Person", "Software System", "Container", "Component", "Deployment Node", "Infrastructure Node", "Relationship", "Container Instance", "Software System Instance"]);

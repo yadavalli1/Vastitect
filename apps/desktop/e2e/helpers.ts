@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 export const state = (page: Page) => page.evaluate(() => (window as any).__vastitecture.model.state);
 export const appState = (page: Page) => page.evaluate(() => (window as any).__vastitecture.app.getState());
 

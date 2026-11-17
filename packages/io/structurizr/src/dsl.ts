@@ -336,7 +336,7 @@ export function parseDsl(text: string): ModelPatch {
         if (opens) skipBlock();
         continue;
       }
-      let args = a.slice(1);
+      const args = a.slice(1);
       let subject: Id | undefined;
       let env: string | undefined;
       if (viewpoint !== "c4:landscape") {

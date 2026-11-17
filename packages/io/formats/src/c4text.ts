@@ -1,4 +1,4 @@
-import { makeElement, makeRelationship, makeView, type Element, type Id, type ModelPatch, type Relationship, type View, type Workspace } from "@vastitecture/plugin-sdk";
+import { makeElement, makeRelationship, makeView, type Element, type Id, type ModelPatch, type Relationship, type Workspace } from "@vastitecture/plugin-sdk";
 
 /**
  * Mermaid C4 diagrams and C4-PlantUML share one macro language:

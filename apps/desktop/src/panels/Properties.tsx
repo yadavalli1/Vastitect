@@ -138,7 +138,7 @@ function ElementProps({ el }: { el: Element }) {
         <select name="kind" className="input" style={{ width: 86 }} aria-label={t("Link kind")}>
           {["repo", "runbook", "adr", "doc", "other"].map((k) => <option key={k}>{k}</option>)}
         </select>
-        <input name="href" className="input" placeholder="https://…" aria-label={t("Link URL")} />
+        <input name="href" className="input" placeholder={t("https://…")} aria-label={t("Link URL")} />
         <button className="btn" type="submit">{t("Add")}</button>
       </form>
       {node && view && (

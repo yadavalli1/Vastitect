@@ -68,3 +68,21 @@ Terraform, AsyncAPI, draw.io) the fixtures were written for this project.
 The pack's element list follows the public summaries quoted in the build prompt because the
 specification and the vendor change summaries could not be fetched from the build environment.
 `packs/archimate/elements.json` is marked `"verified": false` and the problems panel says so.
+
+## D-20 View translation is deterministic, not generated
+"Translate a C4 view into an ArchiMate view" uses the mapping table and per-notation relationship rules
+("A uses B" becomes "B serves A"), so it is repeatable and works with the assistant switched off. The
+assistant's own actions (draft, suggest, explain, review) are the generative ones.
+
+## D-21 AWS discovery goes through the AWS CLI
+Rather than embedding an AWS SDK and request signing, the desktop app runs an allow-list of read-only
+`describe-`/`list-` commands with the user's installed CLI and local profile. The browser build accepts
+the same commands' saved JSON output.
+
+## D-22 Reading YAML with js-yaml, writing with yaml
+`yaml` produces the stable, minimal output the Git-friendly format needs; `js-yaml` reads 5,000 files
+about four times faster. Both use the JSON schema subset, so they agree.
+
+## D-23 Updater artifacts are opt-in
+`createUpdaterArtifacts` is off in `tauri.conf.json` so local and unsigned builds work. The release
+workflow turns it on when the `TAURI_SIGNING_PRIVATE_KEY` secret exists.

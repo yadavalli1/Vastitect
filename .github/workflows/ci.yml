@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, type-check and test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - name: Messages are extracted
+        run: node scripts/extract-messages.mjs --check
+      - name: Unit tests (core, notations, importers, connectors, plugin sandbox)
+        run: pnpm test
+      - name: Install Playwright's Chromium
+        working-directory: apps/desktop
+        run: pnpm exec playwright install --with-deps chromium
+      - name: UI tests (web build)
+        working-directory: apps/desktop
+        env:
+          CI: "1"
+        run: pnpm exec playwright test --trace off
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/desktop/test-results
+
+  rust:
+    name: Native shell
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: System libraries for Tauri
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev
+      - run: cargo test -p vastitecture-shell
+      - run: cargo clippy -p vastitecture-shell -- -D warnings

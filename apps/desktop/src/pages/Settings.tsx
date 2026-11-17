@@ -28,7 +28,7 @@ export function SettingsPage() {
         </p>
         <label className="flex items-center gap-2"><input type="checkbox" checked={ai.enabled} onChange={(e) => aiSettings.set({ enabled: e.target.checked })} /> {t("Enable the assistant")}</label>
         <label className="label" htmlFor="ai-url">{t("OpenAI-compatible base URL")}</label>
-        <input id="ai-url" className="input" value={ai.baseUrl} onChange={(e) => aiSettings.set({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" />
+        <input id="ai-url" className="input" value={ai.baseUrl} onChange={(e) => aiSettings.set({ baseUrl: e.target.value })} placeholder={t("https://api.openai.com/v1")} />
         <p className="muted" style={{ fontSize: 12, margin: "4px 0" }}>{t("Examples: http://localhost:11434/v1 (Ollama), http://localhost:4000/v1 (LiteLLM), https://api.openai.com/v1")}</p>
         <label className="label" htmlFor="ai-model">{t("Model")}</label>
         <input id="ai-model" className="input" value={ai.model} onChange={(e) => aiSettings.set({ model: e.target.value })} />

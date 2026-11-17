@@ -1,7 +1,7 @@
 import { parseAllDocuments } from "yaml";
 import { makeElement, makeRelationship, makeView, type Element, type ImportInput, type ModelPatch, type Relationship, type View } from "@vastitecture/plugin-sdk";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 export type J = Record<string, any>;
 
 /** Parse YAML or JSON, including multi-document YAML streams. Unparseable files are reported, not fatal. */

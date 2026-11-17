@@ -1,7 +1,8 @@
-import { app, model, redo, registry, saveNow, set, setTheme, undo } from "./state";
+import { app, model, redo, registry, saveNow, set, setTheme, toast, undo } from "./state";
 import { alignSelection, addAnnotation, deleteSelection, exportPng, exportSvg, runLayout } from "./ops";
 import { t } from "./i18n";
 import { pages } from "./pages/registry";
+import { isTauri } from "./platform";
 
 export interface AppCommand {
   id: string;
@@ -60,6 +61,23 @@ export function commands(): AppCommand[] {
       run: () => {
         setTheme(th.dark ? "dark" : "light");
         for (const [k, v] of Object.entries(th.vars)) document.documentElement.style.setProperty(k, v);
+      },
+    });
+  if (isTauri)
+    list.push({
+      id: "updates",
+      label: t("Check for updates"),
+      async run() {
+        try {
+          const { check } = await import("@tauri-apps/plugin-updater");
+          const update = await check();
+          if (!update) return toast(t("You have the latest version"));
+          toast(t("Downloading version {version}…", { version: update.version }));
+          await update.downloadAndInstall();
+          toast(t("Version {version} is installed. Restart Vastitecture to use it.", { version: update.version }));
+        } catch (e) {
+          toast(t("Could not check for updates: {error}", { error: e instanceof Error ? e.message : String(e) }));
+        }
       },
     });
   for (const fn of extra) list.push(...fn());

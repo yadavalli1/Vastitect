@@ -8,9 +8,9 @@ import { t } from "../i18n";
 export function TableExport({ table, base }: { table: Table; base: string }) {
   return (
     <span className="flex gap-1">
-      <button className="btn" onClick={() => void saveFile(`${base}.csv`, tableToCsv(table), "text/csv")}>CSV</button>
-      <button className="btn" onClick={() => void saveFile(`${base}.xlsx`, tableToXlsx(table), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}>Excel</button>
-      <button className="btn" onClick={() => void saveFile(`${base}.md`, tableToMarkdown(table), "text/markdown")}>Markdown</button>
+      <button className="btn" onClick={() => void saveFile(`${base}.csv`, tableToCsv(table), "text/csv")}>{t("CSV")}</button>
+      <button className="btn" onClick={() => void saveFile(`${base}.xlsx`, tableToXlsx(table), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}>{t("Excel")}</button>
+      <button className="btn" onClick={() => void saveFile(`${base}.md`, tableToMarkdown(table), "text/markdown")}>{t("Markdown")}</button>
     </span>
   );
 }

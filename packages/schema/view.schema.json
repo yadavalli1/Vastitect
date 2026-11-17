@@ -1,0 +1,213 @@
+{
+  "$id": "https://github.com/yadavalli1/Vastitect/blob/main/packages/schema/view.schema.json",
+  "title": "view",
+  "description": "views/<notation>/<slug>.yaml: placements, routes and annotations of one view",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "notation": {
+      "type": "string"
+    },
+    "viewpoint": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "subject": {
+      "type": "string"
+    },
+    "properties": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "default": {}
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "element": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "w": {
+            "type": "number"
+          },
+          "h": {
+            "type": "number"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "collapsed": {
+            "type": "boolean"
+          },
+          "style": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          }
+        },
+        "required": [
+          "element",
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "relationship": {
+            "type": "string"
+          },
+          "waypoints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "order": {
+            "type": "number"
+          },
+          "style": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          }
+        },
+        "required": [
+          "relationship"
+        ],
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "annotations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "note",
+              "group",
+              "text",
+              "image"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "w": {
+            "type": "number"
+          },
+          "h": {
+            "type": "number"
+          },
+          "text": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string"
+          },
+          "style": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "additionalProperties": false
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "id",
+    "notation",
+    "name"
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
