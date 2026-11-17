@@ -166,7 +166,7 @@ export function drillDown(viewId: Id, elementId: Id): boolean {
   if (!rule) return false;
   const existing = Object.values(ws.views).find((v) => v.subject === elementId && v.viewpoint === rule.viewpoint);
   if (existing) {
-    set({ activeView: existing.id });
+    set({ activeView: existing.id, cameFrom: { ...app.getState().cameFrom, [existing.id]: viewId } });
     select();
     return true;
   }
@@ -203,7 +203,7 @@ export function drillDown(viewId: Id, elementId: Id): boolean {
     .filter((r) => present.has(r.source) && present.has(r.target))
     .map((r) => ({ relationship: r.id }));
   dispatch({ type: "addView", view: child }, t("Open child view"));
-  set({ activeView: child.id });
+  set({ activeView: child.id, cameFrom: { ...app.getState().cameFrom, [child.id]: viewId } });
   select();
   void runLayout(child.id);
   return true;

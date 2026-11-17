@@ -1,4 +1,4 @@
-import { impliedRelationships, presentationType, type Registry, type View, type ViewNode, type Workspace } from "@vastitecture/core";
+import { impliedRelationships, presentationType, resolveLook, type Registry, type View, type ViewNode, type Workspace } from "@vastitecture/core";
 import { dashArray, edgePoints, markerGeom, midPoint, pointsToPath, shapeGeom, wrapText, type Rect } from "./shapes";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -74,18 +74,19 @@ export function viewToSvg(ws: Workspace, view: View, reg: Registry, theme: SvgTh
     const def = reg.elementType(presentationType(ws, el, view.notation, reg) ?? el.type) ?? reg.elementType(el.type);
     const r = rects.get(n.element)!;
     grow(r);
-    const g = shapeGeom(def?.shape ?? "rect", r.w, r.h);
-    const fill = String(n.style?.fill ?? def?.fill ?? theme.fill);
-    const dark = def?.fill || n.style?.fill ? "#0f172a" : theme.text;
+    const look = resolveLook(def, el.properties);
+    const g = shapeGeom(look.shape, r.w, r.h);
+    const fill = String(n.style?.fill ?? look.fill ?? theme.fill);
+    const dark = look.fill || n.style?.fill ? "#0f172a" : theme.text;
     body.push(`<g transform="translate(${r.x} ${r.y})" role="img" aria-label="${esc(`${def?.name ?? el.type}: ${el.name}`)}">`);
     for (const p of g.parts) {
       if (p.role === "body") body.push(`<path d="${p.d}" fill="${g.dashed ? "none" : fill}" stroke="${theme.stroke}" stroke-width="1.5"${g.dashed ? ' stroke-dasharray="6 4"' : ""}/>`);
       else if (p.role === "detail") body.push(`<path d="${p.d}" fill="none" stroke="${theme.stroke}" stroke-width="1.5"/>`);
       else body.push(`<path d="${p.d}" fill="#000" fill-opacity="0.15"/>`);
     }
-    const isContainer = g.top || def?.container;
+    const isContainer = g.top || def?.container === true || view.nodes.some((k) => k.parent === n.element && !hidden.has(k.element));
     const lines = wrapText(el.name, g.label.w, 13);
-    const badge = def?.badge ? `[${def.badge}${typeof el.properties.technology === "string" && el.properties.technology ? ": " + el.properties.technology : ""}]` : "";
+    const badge = look.badge ? `[${look.badge}${typeof el.properties.technology === "string" && el.properties.technology ? ": " + el.properties.technology : ""}]` : "";
     const total = lines.length * 16 + (badge ? 13 : 0);
     const y0 = isContainer ? g.label.y + 14 : g.label.y + g.label.h / 2 - total / 2 + 12;
     const anchor = isContainer ? "start" : "middle";

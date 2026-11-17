@@ -174,6 +174,8 @@ export interface ModelPatch {
   removeElements?: Id[];
   removeRelationships?: Id[];
   removeViews?: Id[];
+  /** Views that have no meaningful positions yet and should be auto-laid out after applying. */
+  layout?: Id[];
   /** Human-readable notes, e.g. migration report lines. */
   report?: string[];
 }

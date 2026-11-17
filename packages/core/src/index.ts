@@ -6,3 +6,4 @@ export * from "./registry";
 export * from "./queries";
 export * from "./validate";
 export * from "./defaults";
+export * from "./code";

@@ -46,9 +46,21 @@ export interface ElementTypeDef {
   /** Stereotype text under the name, e.g. "Container". */
   badge?: string;
   size?: [number, number];
-  /** Can visually contain child nodes. */
-  container?: boolean;
+  /** Can visually contain child nodes: any (true) or only the listed presentation types. */
+  container?: boolean | TypeId[];
   properties?: PropertyDef[];
+  /** Alternative looks chosen by a property value, e.g. a database-kind container drawn as a cylinder. */
+  variants?: { property: string; values: Record<string, { shape?: ShapeKind; fill?: string; badge?: string }> }[];
+}
+
+/** Apply property-driven variants to a type definition. */
+export function resolveLook(def: ElementTypeDef | undefined, properties: Record<string, unknown>): { shape: ShapeKind; fill?: string; badge?: string } {
+  let look = { shape: def?.shape ?? ("rect" as ShapeKind), fill: def?.fill, badge: def?.badge };
+  for (const v of def?.variants ?? []) {
+    const hit = v.values[String(properties[v.property] ?? "")];
+    if (hit) look = { ...look, ...hit };
+  }
+  return look;
 }
 
 export type Marker = "none" | "arrow" | "open" | "triangle" | "diamond" | "filledDiamond" | "circle" | "filledCircle" | "half";
@@ -155,6 +167,10 @@ export interface Exporter {
   scope: "view" | "workspace";
   /** Notations this exporter can handle for view scope (undefined = any). */
   notations?: string[];
+  /** Id of the importer that reads this format back. A view-scoped pair becomes an editable language in the split view. */
+  roundTripWith?: string;
+  /** Editor language id for syntax highlighting. */
+  language?: string;
   export(ws: Workspace, opts: { view?: Id }): Promise<ExportResult> | ExportResult;
 }
 

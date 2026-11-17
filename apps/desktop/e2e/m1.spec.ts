@@ -1,44 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-
-type Hook = { model: { state: any }; app: { getState(): any } };
-const state = (page: Page) => page.evaluate(() => (window as unknown as { __vastitecture: Hook }).__vastitecture.model.state);
-const files = (page: Page, ws: string) =>
-  page.evaluate((prefix) => {
-    const out: Record<string, string> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)!;
-      if (k.startsWith(prefix)) out[k.slice(prefix.length)] = localStorage.getItem(k)!;
-    }
-    return out;
-  }, `vastitecture/ws/${ws}/`);
-
-async function newWorkspace(page: Page, name: string) {
-  await page.getByRole("button", { name: /Vastitecture ·/ }).click();
-  await page.getByRole("dialog", { name: "Workspace" }).getByLabel("Name").fill(name);
-  await page.getByRole("button", { name: "Create in browser storage" }).click();
-  await expect(page.getByRole("dialog", { name: "Workspace" })).toBeHidden();
-}
-
-async function newView(page: Page, notation: string, name: string, viewpoint?: string) {
-  await page.getByRole("button", { name: "New view" }).click();
-  await page.getByLabel("Notation").selectOption({ label: notation });
-  if (viewpoint) await page.getByLabel("Viewpoint").selectOption({ label: viewpoint });
-  await page.getByLabel("Name", { exact: true }).fill(name);
-  await page.getByRole("button", { name: "Create view" }).click();
-}
-
-async function connectNodes(page: Page, from: string, to: string) {
-  const a = page.locator(`.react-flow__node:has([aria-label$=": ${from}"])`);
-  const b = page.locator(`.react-flow__node:has([aria-label$=": ${to}"])`);
-  await a.hover();
-  const handle = a.locator(".vnode-handle").nth(1);
-  const hb = (await handle.boundingBox())!;
-  const tb = (await b.boundingBox())!;
-  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2, { steps: 8 });
-  await page.mouse.up();
-}
+import { expect, test } from "@playwright/test";
+import { connectNodes, files, newView, newWorkspace, state } from "./helpers";
 
 test("first launch opens the sample workspace with no configuration", async ({ page }) => {
   await page.goto("/");

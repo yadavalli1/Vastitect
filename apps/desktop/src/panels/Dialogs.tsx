@@ -118,9 +118,10 @@ export function ReviewDialog() {
         <button className="btn primary" disabled={empty} onClick={async () => {
           model.dispatch({ type: "applyPatch", patch: review.patch }, { label: review.title, context: { view: app.getState().activeView } });
           close();
-          for (const v of review.layoutViews ?? []) await runLayout(v, undefined, true);
           const open = review.openView ?? review.patch.views?.[0]?.id;
           if (open && model.state.views[open]) set({ activeView: open, page: "diagram" });
+          for (const v of review.layoutViews ?? []) await runLayout(v, undefined, true);
+          set({ layoutDone: (app.getState().layoutDone ?? 0) + 1 });
           toast(t("Applied. Undo reverts the whole change."));
         }}>{t("Apply")}</button>
         <button className="btn" onClick={close}>{t("Discard")}</button>

@@ -1,6 +1,6 @@
 import { memo, useContext, useEffect, useRef, useState } from "react";
 import { Handle, NodeResizer, Position, useConnection, type Node, type NodeProps } from "@xyflow/react";
-import { presentationType, type Id } from "@vastitecture/core";
+import { presentationType, resolveLook, type Id } from "@vastitecture/core";
 import { shapeGeom } from "@vastitecture/render";
 import { app, dispatch, model, registry, set, useApp, useModel } from "../state";
 import { renameElement, toggleCollapse } from "../ops";
@@ -57,9 +57,10 @@ export const ShapeNode = memo(function ShapeNode({ id, data, selected, width, he
   void mappings; // re-render when the mapping table changes
   const type = presentationType(model.state, el, data.notation, registry) ?? el.type;
   const def = registry.elementType(type) ?? registry.elementType(el.type);
-  const g = shapeGeom(def?.shape ?? "rect", w, h);
-  const fill = data.fill ?? def?.fill;
-  const top = g.top || def?.container || data.hasKids;
+  const look = resolveLook(def, el.properties);
+  const g = shapeGeom(look.shape, w, h);
+  const fill = data.fill ?? look.fill;
+  const top = g.top || def?.container === true || data.hasKids;
   const tech = typeof el.properties.technology === "string" ? el.properties.technology : "";
   const dim = highlight && !highlight.has(id);
   const label = `${def?.name ?? el.type}: ${el.name}`;
@@ -101,7 +102,7 @@ export const ShapeNode = memo(function ShapeNode({ id, data, selected, width, he
         ) : (
           <>
             <span className="vnode-name">{el.name}</span>
-            {def?.badge && <span className="vnode-badge">[{def.badge}{tech ? `: ${tech}` : ""}]</span>}
+            {look.badge && <span className="vnode-badge">[{look.badge}{tech ? `: ${tech}` : ""}]</span>}
             {!top && el.description && h > 105 && <span className="vnode-desc">{el.description}</span>}
           </>
         )}

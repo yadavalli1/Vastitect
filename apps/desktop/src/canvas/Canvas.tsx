@@ -200,7 +200,10 @@ function Inner({ viewId }: { viewId: Id }) {
         .filter((n) => {
           const el = model.state.elements[n.element];
           const def = el && registry.elementType(presentationType(model.state, el, v.notation, registry) ?? el.type);
-          return def?.container || v.nodes.some((k) => k.parent === n.element);
+          const mine = model.state.elements[node.id];
+          const myType = mine && (presentationType(model.state, mine, v.notation, registry) ?? mine.type);
+          if (Array.isArray(def?.container)) return def.container.includes(myType);
+          return def?.container || (v.nodes.some((k) => k.parent === n.element) && mine?.parent === n.element);
         })
         .map((n) => ({ n, r: rects.get(n.element)! }))
         .filter(({ r: c }) => cx > c.x && cx < c.x + c.w && cy > c.y && cy < c.y + c.h)
@@ -210,7 +213,8 @@ function Inner({ viewId }: { viewId: Id }) {
       const base = newParent ? rects.get(newParent)! : { x: 0, y: 0 };
       const cmds: Command[] = [{ type: "updateNodes", view: viewId, nodes: [{ element: node.id, parent: newParent, x: Math.round(r.x - base.x), y: Math.round(r.y - base.y) }] }];
       const el = model.state.elements[node.id];
-      if (newParent && el && el.parent !== newParent) cmds.push({ type: "updateElement", id: node.id, patch: { parent: newParent } });
+      // Model containment follows the drawing only when that is unambiguous: no parent yet, or moved between containers in this view.
+      if (newParent && el && el.parent !== newParent && (!el.parent || v.nodes.some((n) => n.element === el.parent))) cmds.push({ type: "updateElement", id: node.id, patch: { parent: newParent } });
       model.dispatch(cmds, { label: t("Move"), coalesce: true, context: { view: viewId } });
     },
     [viewId],
@@ -388,7 +392,6 @@ function Inner({ viewId }: { viewId: Id }) {
           maxZoom={3}
           snapToGrid
           snapGrid={[5, 5]}
-          onlyRenderVisibleElements
           elevateNodesOnSelect={false}
           proOptions={{ hideAttribution: true }}
           aria-label={t("Diagram canvas: {name}", { name: view.name })}

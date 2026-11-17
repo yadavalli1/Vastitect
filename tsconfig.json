@@ -3,7 +3,12 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable",
+      "WebWorker"
+    ],
     "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": false,
@@ -12,8 +17,34 @@
     "allowImportingTsExtensions": false,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@vastitecture/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@vastitecture/plugin-sdk": [
+        "packages/plugin-sdk/src/index.ts"
+      ],
+      "@vastitecture/render": [
+        "packages/render/src/index.ts"
+      ],
+      "@vastitecture/layout": [
+        "packages/layout/src/index.ts"
+      ]
+    }
   },
-  "include": ["packages", "apps/desktop/src", "apps/desktop/e2e", "apps/desktop/*.ts"],
-  "exclude": ["**/node_modules", "**/dist", "**/template/**"]
+  "include": [
+    "packages",
+    "apps/desktop/src",
+    "apps/desktop/e2e",
+    "apps/desktop/*.ts"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/template/**"
+  ]
 }

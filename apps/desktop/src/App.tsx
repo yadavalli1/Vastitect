@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { ancestors, type Id } from "@vastitecture/core";
+import { Suspense, lazy, useEffect, useState } from "react";
+import type { Id } from "@vastitecture/core";
 import { model, redo, registry, select, set, setTheme, undo, useApp, useModel, useRegistryVersion } from "./state";
 import { exportPng, exportSvg, registerLayouts, runLayout, alignSelection } from "./ops";
 import { handleShortcut } from "./commands";
@@ -12,24 +12,55 @@ import { ConflictDialog, ReviewDialog, WorkspaceDialog } from "./panels/Dialogs"
 import { pages } from "./pages/registry";
 import { extensions } from "./extensions";
 import { t } from "./i18n";
+import { importFiles, importInputs, runExporter } from "./io";
+import { Modal } from "./panels/Dialogs";
+
+const LazyCode = lazy(() => import("./panels/CodePane"));
+extensions.codePane = ({ viewId }) => (
+  <Suspense fallback={<div className="panel border-l" style={{ width: "40%", padding: 12 }}>{t("Loading editor…")}</div>}>
+    <LazyCode key={viewId} viewId={viewId} />
+  </Suspense>
+);
+
+/** Paste a Mermaid block, DSL or any other supported text to import it. */
+function PasteImport({ onClose }: { onClose(): void }) {
+  const [text, setText] = useState("");
+  return (
+    <Modal title={t("Import from pasted text")} onClose={onClose}>
+      <p className="muted">{t("Paste Structurizr DSL, Mermaid, PlantUML, CML, YAML or JSON. The format is detected automatically.")}</p>
+      <textarea className="input" aria-label={t("Text to import")} style={{ minHeight: 260, fontFamily: "monospace" }} value={text} onChange={(e) => setText(e.target.value)} autoFocus />
+      <div className="flex gap-2 mt-3">
+        <button className="btn primary" disabled={!text.trim()} onClick={() => (onClose(), void importInputs([{ name: "pasted.txt", text }]))}>{t("Import")}</button>
+        <button className="btn" onClick={onClose}>{t("Cancel")}</button>
+      </div>
+    </Modal>
+  );
+}
+
 
 registerLayouts();
 
 /** Breadcrumbs: follow the view's subject up the containment chain to views that drill into its ancestors. */
 function Breadcrumbs({ viewId }: { viewId: Id }) {
   const views = useModel((ws) => ws.views);
+  const cameFrom = useApp((st) => st.cameFrom);
   const view = views[viewId];
   if (!view) return null;
-  const ws = model.state;
+  // Walk up: the view we drilled in from, else a view that shows this view's subject as a plain (unexpanded) node.
   const crumbs: { id: Id; name: string }[] = [];
-  if (view.subject) {
-    const all = Object.values(views).filter((v) => v.notation === view.notation);
-    for (const a of ancestors(ws, view.subject).reverse()) {
-      const v = all.find((x) => x.subject === a);
-      if (v) crumbs.push({ id: v.id, name: ws.elements[a]?.name ?? v.name });
-    }
-    const root = all.find((v) => !v.subject && v.nodes.some((n) => n.element === view.subject || ancestors(ws, view.subject!).includes(n.element)));
-    if (root) crumbs.unshift({ id: root.id, name: root.name });
+  const seen = new Set<Id>([viewId]);
+  for (let cur = view; cur.subject && crumbs.length < 8; ) {
+    const from = cameFrom[cur.id] && views[cameFrom[cur.id]] ? views[cameFrom[cur.id]] : undefined;
+    const subject = cur.subject;
+    const up =
+      from ??
+      Object.values(views)
+        .filter((v) => v.notation === cur.notation && !seen.has(v.id) && v.nodes.some((n) => n.element === subject) && !v.nodes.some((n) => n.parent === subject))
+        .sort((a, b) => Number(!!a.subject) - Number(!!b.subject) || a.name.localeCompare(b.name))[0];
+    if (!up || seen.has(up.id)) break;
+    seen.add(up.id);
+    crumbs.unshift({ id: up.id, name: up.name });
+    cur = up;
   }
   return (
     <nav className="chrome flex items-center gap-1" aria-label={t("Breadcrumbs")} data-testid="breadcrumbs" style={{ padding: "4px 10px", borderBottom: "1px solid var(--border)", background: "var(--panel)" }}>
@@ -81,9 +112,15 @@ function Toolbar({ problemCount }: { problemCount: number }) {
           <button className={`btn${s.codeOpen ? " on" : ""}`} aria-pressed={s.codeOpen} onClick={() => set({ codeOpen: !s.codeOpen })}>{t("Code")}</button>
           <button className="btn" onClick={() => void exportSvg(v)}>SVG</button>
           <button className="btn" onClick={() => void exportPng(v)}>PNG</button>
+          <select className="btn" aria-label={t("Export")} value="" onChange={(e) => { const x = registry.exporters.get(e.target.value); if (x) void runExporter(x); }}>
+            <option value="">{t("Export…")}</option>
+            {[...registry.exporters.values()].map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+          </select>
           {extensions.toolbar.map((T, i) => <T key={i} />)}
         </>
       )}
+      <button className="btn" onClick={() => void importFiles()}>{t("Import")}</button>
+      <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("vastitecture:paste-import"))}>{t("Paste")}</button>
       <span style={{ flex: 1 }} />
       <button className={`btn${s.problemsOpen ? " on" : ""}`} aria-pressed={s.problemsOpen} onClick={() => set({ problemsOpen: !s.problemsOpen })}>{t("Problems")} ({problemCount})</button>
       <button className="btn" onClick={() => set({ presenting: true })}>{t("Present")}</button>
@@ -110,6 +147,12 @@ export function App() {
   const s = useApp();
   useRegistryVersion();
   const problems = useProblems();
+  const [pasting, setPasting] = useState(false);
+  useEffect(() => {
+    const open = () => setPasting(true);
+    window.addEventListener("vastitecture:paste-import", open);
+    return () => window.removeEventListener("vastitecture:paste-import", open);
+  }, []);
   useEffect(() => {
     const h = (e: KeyboardEvent) => handleShortcut(e) && e.preventDefault();
     window.addEventListener("keydown", h);
@@ -151,6 +194,7 @@ export function App() {
       {s.commandOpen && <CommandPalette />}
       {s.newOpen && <WorkspaceDialog />}
       {s.review && <ReviewDialog />}
+      {pasting && <PasteImport onClose={() => setPasting(false)} />}
       <ConflictDialog />
       {!!s.loadIssues.length && (
         <div className="panel" role="alert" style={{ position: "fixed", left: 12, bottom: 12, zIndex: 30, border: "1px solid var(--danger)", borderRadius: 6, padding: 10, maxWidth: 520 }}>

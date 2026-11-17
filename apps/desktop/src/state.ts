@@ -52,6 +52,10 @@ interface AppState {
   loadIssues: { path: string; message: string }[];
   toast?: string;
   devMode: boolean;
+  /** Which view each drilled-into view was opened from, for breadcrumbs. */
+  cameFrom: Record<Id, Id>;
+  /** Bumped when post-import layout finishes (lets tests and UI wait for it). */
+  layoutDone?: number;
 }
 
 export const useApp = create<AppState>(() => ({
@@ -71,6 +75,7 @@ export const useApp = create<AppState>(() => ({
   conflicts: [],
   loadIssues: [],
   devMode: localStorage.getItem("vastitecture/dev") === "1",
+  cameFrom: {},
 }));
 export const app = useApp;
 export const set = (p: Partial<AppState>) => useApp.setState(p);
