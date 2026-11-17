@@ -1,0 +1,20 @@
+{
+  "name": "vastitecture",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @vastitecture/desktop dev",
+    "build": "pnpm --filter @vastitecture/desktop build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "e2e": "pnpm --filter @vastitecture/desktop e2e",
+    "tauri": "pnpm --filter @vastitecture/desktop tauri"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8",
+    "@types/node": "^22.10.0"
+  }
+}
