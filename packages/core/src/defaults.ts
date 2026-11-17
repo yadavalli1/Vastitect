@@ -8,12 +8,12 @@ export const DEFAULT_MAPPINGS: MappingRule[] = [
   {
     concept: "business-system",
     label: "A business system",
-    members: { archimate: ["archimate:ApplicationComponent"], c4: ["c4:SoftwareSystem"], ddd: ["ddd:BoundedContext", "ddd:ExternalSystem"] },
+    members: { archimate: ["archimate:ApplicationComponent"], c4: ["c4:SoftwareSystem"], ddd: ["ddd:BoundedContext", "ddd:ExternalSystem"], togaf: ["togaf:ArchitectureBuildingBlock"] },
   },
   {
     concept: "deployable-unit",
     label: "A deployable unit",
-    members: { archimate: ["archimate:ApplicationComponent", "archimate:SystemSoftware"], c4: ["c4:Container", "c4:Component"], ddd: ["ddd:Module"] },
+    members: { archimate: ["archimate:ApplicationComponent", "archimate:SystemSoftware"], c4: ["c4:Container", "c4:Component"], ddd: ["ddd:Module"], togaf: ["togaf:SolutionBuildingBlock"] },
   },
   {
     concept: "data-store",
@@ -23,12 +23,13 @@ export const DEFAULT_MAPPINGS: MappingRule[] = [
   {
     concept: "person-or-team",
     label: "A person or team",
-    members: { archimate: ["archimate:BusinessActor", "archimate:BusinessRole"], c4: ["c4:Person"], ddd: ["ddd:Team"] },
+    members: { archimate: ["archimate:BusinessActor", "archimate:Role"], c4: ["c4:Person"], ddd: ["ddd:Team"] },
   },
   {
     concept: "api",
     label: "An API",
-    members: { archimate: ["archimate:ApplicationInterface"], c4: ["c4:Component"], ddd: ["ddd:OpenHostService"] },
+    // C4 and DDD express an API as a relationship (technology, Open Host Service); as an element it maps only to ArchiMate.
+    members: { archimate: ["archimate:ApplicationInterface"] },
   },
   {
     concept: "infrastructure",

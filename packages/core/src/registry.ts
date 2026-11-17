@@ -96,6 +96,10 @@ export interface ViewpointDef {
   /** "board" and "form" are rendered by dedicated host views instead of the node canvas. */
   kind?: "diagram" | "board" | "form";
   layout?: { algorithm?: string; direction?: "DOWN" | "RIGHT" };
+  /** For kind "form": the card's sections. Fields edit properties of the view's subject element. */
+  form?: { subjectTypes: TypeId[]; sections: { title: string; fields: PropertyDef[] }[] };
+  /** Draw a left-to-right timeline behind the diagram (event storming). */
+  timeline?: boolean;
 }
 
 /** Relationship validity as data. Patterns are type ids, "*" or "category:<name>". */
@@ -128,10 +132,10 @@ export interface ReportDef {
   id: string;
   name: string;
   kind: "catalog" | "matrix";
-  /** Catalog: element types listed. Matrix: row types. */
-  rows: TypeId[];
-  /** Matrix only: column types (concept-mapped types are matched through the mapping table). */
-  columns?: TypeId[];
+  /** Catalog: element types listed. Matrix: row types. Entries are type ids or "concept:<mapping concept>". */
+  rows: string[];
+  /** Matrix only: column types, same syntax as rows. */
+  columns?: string[];
   /** Catalog columns: property keys or built-ins (name, description, owner, lifecycle, tags). */
   fields?: string[];
 }

@@ -44,7 +44,7 @@ test("viewpoints restrict the palette, and the About box carries the trademark n
   await page.goto("/");
   await newWorkspace(page, "m3-vp");
   await page.getByRole("button", { name: "New view" }).click();
-  await page.getByLabel("Notation").selectOption({ label: "ArchiMate 4" });
+  await page.getByLabel("Notation", { exact: true }).selectOption({ label: "ArchiMate 4" });
   await page.getByLabel("Viewpoint").selectOption({ label: "Motivation" });
   await page.getByRole("button", { name: "Create view" }).click();
   const palette = page.getByTestId("palette");

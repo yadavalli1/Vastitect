@@ -1,0 +1,100 @@
+/* Written for Vastitecture's tests. Covers the relationship forms, domains and tactical elements
+   that the published sample does not: keyword relationships, symmetric patterns, modules, subdomains. */
+ContextMap InsuranceContextMap {
+	type = SYSTEM_LANDSCAPE
+	state = TO_BE
+	contains CustomerManagementContext, CustomerSelfServiceContext, PrintingContext
+	contains PolicyManagementContext, RiskManagementContext, DebtCollection
+
+	CustomerSelfServiceContext [D,C]<-[U,S] CustomerManagementContext
+
+	CustomerManagementContext [D,ACL]<-[U,OHS,PL] PrintingContext {
+		implementationTechnology = "SOAP"
+		downstreamRights = INFLUENCER
+	}
+
+	PolicyManagementContext [D,CF]<-[U,OHS,PL] CustomerManagementContext : Customer_Frontend_Backend_Relationship {
+		implementationTechnology = "RESTful HTTP"
+		exposedAggregates = Customers
+	}
+
+	RiskManagementContext [P]<->[P] PolicyManagementContext
+	PolicyManagementContext [SK]<->[SK] DebtCollection
+	DebtCollection Customer-Supplier PrintingContext
+	RiskManagementContext Upstream-Downstream DebtCollection
+}
+
+BoundedContext CustomerManagementContext implements CustomerManagementDomain {
+	type = FEATURE
+	domainVisionStatement = "The customer management context is responsible for managing all the data of the insurance companies customers."
+	responsibilities = "Customers", "Addresses"
+	implementationTechnology = "Java, JEE Application"
+
+	Module customers {
+		Aggregate Customers {
+			owner = CustomerBackendTeam
+			Entity Customer {
+				aggregateRoot
+				- SocialInsuranceNumber sin
+				String firstname
+				String lastname
+				- List<Address> addresses
+			}
+			ValueObject SocialInsuranceNumber {
+				String sin key
+			}
+			DomainEvent CustomerRelocated {
+				String customerId
+			}
+			Service CustomerLookup {
+				@Customer find(String sin);
+			}
+		}
+	}
+}
+
+BoundedContext CustomerSelfServiceContext implements CustomerManagementDomain {
+	type = APPLICATION
+	domainVisionStatement = "Lets customers change their own data."
+}
+
+BoundedContext PrintingContext implements PrintingDomain {
+	type = SYSTEM
+}
+
+BoundedContext PolicyManagementContext implements PolicyManagementDomain {
+	Aggregate Offers {
+		Entity Offer {
+			aggregateRoot
+			int offerId
+		}
+		CommandEvent AcceptOffer
+	}
+}
+
+BoundedContext RiskManagementContext implements RiskManagementDomain
+BoundedContext DebtCollection implements DebtsDomain
+
+Domain InsuranceDomain {
+	domainVisionStatement = "Selling and servicing insurance."
+	Subdomain CustomerManagementDomain {
+		type = CORE_DOMAIN
+		domainVisionStatement = "Subdomain managing everything customer-related."
+	}
+	Subdomain PolicyManagementDomain {
+		type = CORE_DOMAIN
+	}
+	Subdomain PrintingDomain {
+		type = SUPPORTING_DOMAIN
+	}
+	Subdomain RiskManagementDomain {
+		type = GENERIC_SUBDOMAIN
+	}
+	Subdomain DebtsDomain {
+		type = GENERIC_SUBDOMAIN
+	}
+}
+
+UseCase UpdateContactInfo {
+	interactions = "update" an "Address"
+}

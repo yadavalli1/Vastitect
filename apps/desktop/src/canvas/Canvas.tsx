@@ -4,6 +4,7 @@ import {
   ConnectionMode,
   Controls,
   MiniMap,
+  ViewportPortal,
   ReactFlow,
   ReactFlowProvider,
   applyEdgeChanges,
@@ -404,6 +405,16 @@ function Inner({ viewId }: { viewId: Id }) {
           aria-label={t("Diagram canvas: {name}", { name: view.name })}
         >
           <Background gap={20} />
+          {registry.viewpoint(view.notation, view.viewpoint)?.timeline && (
+            <ViewportPortal>
+              <div aria-label={t("Timeline")} data-testid="timeline" style={{ position: "absolute", left: -100, top: -46, width: 6000, pointerEvents: "none", color: "var(--muted)", fontSize: 12 }}>
+                <div style={{ borderTop: "2px dashed var(--muted)", position: "relative" }}>
+                  <span style={{ position: "absolute", right: -10, top: -11 }}>▶</span>
+                </div>
+                <span>{t("time")} →</span>
+              </div>
+            </ViewportPortal>
+          )}
           {!presenting && <Controls showInteractive={false} position="bottom-left" />}
           {!presenting && <MiniMap pannable zoomable position="bottom-right" nodeColor="var(--muted)" maskColor="color-mix(in srgb, var(--bg) 70%, transparent)" ariaLabel={t("Minimap")} />}
         </ReactFlow>

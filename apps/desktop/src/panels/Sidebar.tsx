@@ -7,7 +7,7 @@ import { focusCanvas } from "../canvas/nodes";
 import { t } from "../i18n";
 
 function NewView({ onDone }: { onDone(): void }) {
-  const packs = [...registry.packs.values()];
+  const packs = [...registry.packs.values()].filter((p) => p.viewpoints.length);
   const [notation, setNotation] = useState(packs[0]?.id ?? "");
   const pack = registry.packs.get(notation);
   const [viewpoint, setViewpoint] = useState(pack?.viewpoints[0]?.id ?? "");

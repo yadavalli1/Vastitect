@@ -1,0 +1,9 @@
+{
+  "name": "@vastitecture/io-cml",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "dependencies": { "@vastitecture/plugin-sdk": "workspace:*" },
+  "devDependencies": { "context-mapper-mcp": "1.2.1" }
+}

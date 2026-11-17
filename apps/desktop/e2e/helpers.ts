@@ -25,7 +25,7 @@ export async function newWorkspace(page: Page, name: string, template: "blank" |
 
 export async function newView(page: Page, notation: string, name: string, viewpoint?: string) {
   await page.getByRole("button", { name: "New view" }).click();
-  await page.getByLabel("Notation").selectOption({ label: notation });
+  await page.getByLabel("Notation", { exact: true }).selectOption({ label: notation });
   if (viewpoint) await page.getByLabel("Viewpoint").selectOption({ label: viewpoint });
   await page.getByLabel("Name", { exact: true }).fill(name);
   await page.getByRole("button", { name: "Create view" }).click();

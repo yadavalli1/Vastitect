@@ -41,6 +41,8 @@ function edgesFor(view: View, element: Id, alsoPresent: Id[] = []): Command[] {
   const shown = new Set(view.edges.map((e) => e.relationship));
   return Object.values(model.state.relationships)
     .filter((r) => (r.source === element || r.target === element) && present.has(r.source) && present.has(r.target) && !shown.has(r.id))
+    // Only the view's own notation is shown automatically; other relationships can be switched on per element.
+    .filter((r) => r.type.startsWith(view.notation + ":"))
     .map((r) => ({ type: "putEdge" as const, view: view.id, edge: { relationship: r.id } }));
 }
 
@@ -200,7 +202,7 @@ export function drillDown(viewId: Id, elementId: Id): boolean {
   }
   const present = new Set(child.nodes.map((n) => n.element));
   child.edges = Object.values(ws.relationships)
-    .filter((r) => present.has(r.source) && present.has(r.target))
+    .filter((r) => present.has(r.source) && present.has(r.target) && r.type.startsWith(view.notation + ":"))
     .map((r) => ({ relationship: r.id }));
   dispatch({ type: "addView", view: child }, t("Open child view"));
   set({ activeView: child.id, cameFrom: { ...app.getState().cameFrom, [child.id]: viewId } });

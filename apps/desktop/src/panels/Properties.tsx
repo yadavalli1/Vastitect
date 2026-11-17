@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { LIFECYCLE_PHASES, presentationType, viewsContaining, type Element, type Id, type PropertyDef, type PropertyValue } from "@vastitecture/core";
 import { dispatch, model, registry, select, set, useApp, useModel, useRegistryVersion } from "../state";
-import { retype } from "../ops";
+import { createView, retype } from "../ops";
 import { t } from "../i18n";
 
 /** Text input that commits on blur/Enter so every keystroke is not an undo step. */
@@ -55,6 +55,9 @@ export function PropertyField({ def, value, onChange }: { def: PropertyDef; valu
 function ElementProps({ el }: { el: Element }) {
   const activeView = useApp((s) => s.activeView);
   const adrs = useModel((ws) => ws.adrs);
+  useModel((ws) => ws.views);
+  useModel((ws) => ws.relationships);
+  useModel((ws) => ws.mappings);
   const ws = model.state;
   const up = (patch: Partial<Element>, label = t("Edit element")) => dispatch({ type: "updateElement", id: el.id, patch }, label);
   const setProp = (key: string, v: PropertyValue | undefined) => {
@@ -147,6 +150,30 @@ function ElementProps({ el }: { el: Element }) {
           </div>
         </>
       )}
+      {[...registry.packs.values()].flatMap((p) => p.viewpoints.filter((vp) => vp.kind === "form" && vp.form?.subjectTypes.includes(presentationType(ws, el, p.id, registry) ?? "")).map((vp) => (
+        <button key={vp.id} className="btn mt-2" onClick={() => {
+          const existing = Object.values(model.state.views).find((v) => v.viewpoint === vp.id && v.subject === el.id);
+          if (existing) set({ activeView: existing.id, page: "diagram" });
+          else createView(p.id, vp.id, `${el.name} – ${vp.name}`, { subject: el.id });
+        }}>{t("Open {name}", { name: vp.name })}</button>
+      )))}
+      {view && node && (() => {
+        const present = new Set(view.nodes.map((n) => n.element));
+        const mine = Object.values(ws.relationships).filter((r) => (r.source === el.id || r.target === el.id) && present.has(r.source) && present.has(r.target));
+        if (!mine.length) return null;
+        const shown = new Set(view.edges.map((e) => e.relationship));
+        return (
+          <details>
+            <summary className="label" style={{ cursor: "pointer" }}>{t("Relationships in this view ({shown} of {total} shown)", { shown: mine.filter((r) => shown.has(r.id)).length, total: mine.length })}</summary>
+            {mine.map((r) => (
+              <label key={r.id} className="flex items-center gap-2" style={{ fontSize: 12 }}>
+                <input type="checkbox" checked={shown.has(r.id)} onChange={(e) => dispatch(e.target.checked ? { type: "putEdge", view: view.id, edge: { relationship: r.id } } : { type: "removeEdge", view: view.id, relationship: r.id }, t("Show or hide relationship"))} />
+                <span>{r.source === el.id ? "→ " + ws.elements[r.target]?.name : "← " + ws.elements[r.source]?.name} <span className="muted">· {registry.relationshipType(r.type)?.name ?? r.type}</span></span>
+              </label>
+            ))}
+          </details>
+        );
+      })()}
       <div className="label">{t("Shown in views")}</div>
       {others.map((v) => (
         <div key={v.id} className={`row${v.id === activeView ? " active" : ""}`} style={{ paddingLeft: 4 }} role="button" tabIndex={0} onClick={() => set({ activeView: v.id, page: "diagram" })}>

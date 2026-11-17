@@ -10,6 +10,7 @@ import { Problems, useProblems } from "./panels/Problems";
 import { CommandPalette } from "./panels/CommandPalette";
 import { AboutDialog, ConflictDialog, ReviewDialog, WorkspaceDialog } from "./panels/Dialogs";
 import { pages } from "./pages/registry";
+import "./pages";
 import { extensions } from "./extensions";
 import { t } from "./i18n";
 import { importFiles, importInputs, runExporter } from "./io";
