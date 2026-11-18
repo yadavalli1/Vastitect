@@ -1,0 +1,4 @@
+{ "Reservations": [{ "Instances": [
+  { "InstanceId": "i-0c3", "InstanceType": "t3.medium", "SubnetId": "subnet-0b2", "VpcId": "vpc-0a1", "State": { "Name": "running" }, "Tags": [{ "Key": "Name", "Value": "api-1" }] },
+  { "InstanceId": "i-0dead", "InstanceType": "t3.micro", "State": { "Name": "terminated" } }
+] }] }

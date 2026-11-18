@@ -1,0 +1,20 @@
+{
+  "format_version": "1.0",
+  "terraform_version": "1.9.5",
+  "values": {
+    "root_module": {
+      "resources": [
+        { "address": "aws_vpc.main", "mode": "managed", "type": "aws_vpc", "name": "main", "values": { "id": "vpc-0a1", "cidr_block": "10.0.0.0/16", "tags": { "Name": "shop-vpc" } } },
+        { "address": "aws_subnet.private", "mode": "managed", "type": "aws_subnet", "name": "private", "values": { "id": "subnet-0b2", "vpc_id": "vpc-0a1", "cidr_block": "10.0.1.0/24", "tags": { "Name": "private-a" } }, "depends_on": ["aws_vpc.main"] },
+        { "address": "aws_instance.api", "mode": "managed", "type": "aws_instance", "name": "api", "values": { "id": "i-0c3", "instance_type": "t3.medium", "subnet_id": "subnet-0b2", "tags": { "Name": "api-1" } }, "depends_on": ["aws_subnet.private", "aws_db_instance.orders"] },
+        { "address": "aws_db_instance.orders", "mode": "managed", "type": "aws_db_instance", "name": "orders", "values": { "id": "db-0d4", "identifier": "orders-db", "engine": "postgres", "arn": "arn:aws:rds:eu-west-1:123456789012:db:orders-db" } },
+        { "address": "aws_sqs_queue.events", "mode": "managed", "type": "aws_sqs_queue", "name": "events", "values": { "id": "https://sqs.eu-west-1.amazonaws.com/123456789012/order-events", "name": "order-events", "arn": "arn:aws:sqs:eu-west-1:123456789012:order-events" } },
+        { "address": "aws_lambda_function.notify", "mode": "managed", "type": "aws_lambda_function", "name": "notify", "values": { "function_name": "notify-customer", "environment": [{ "variables": { "QUEUE_ARN": "arn:aws:sqs:eu-west-1:123456789012:order-events" } }] } },
+        { "address": "aws_iam_role.lambda", "mode": "managed", "type": "aws_iam_role", "name": "lambda", "values": { "name": "notify-role" } }
+      ],
+      "child_modules": [
+        { "address": "module.cdn", "resources": [{ "address": "module.cdn.aws_cloudfront_distribution.this", "mode": "managed", "type": "aws_cloudfront_distribution", "name": "this", "values": { "id": "E2EXAMPLE" } }] }
+      ]
+    }
+  }
+}

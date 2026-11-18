@@ -1,0 +1,27 @@
+# Written for Vastitecture's tests.
+name: bookshop
+services:
+  web:
+    build: ./web
+    ports: ["8080:80"]
+    environment:
+      API_URL: http://api:3000
+    depends_on: [api]
+  api:
+    image: ghcr.io/example/bookshop-api:1.4.2
+    environment:
+      - DATABASE_URL=postgres://app@db:5432/books
+      - CACHE_HOST=redis
+    depends_on:
+      db:
+        condition: service_healthy
+  worker:
+    image: ghcr.io/example/bookshop-worker:1.4.2
+    environment:
+      BROKER: amqp://queue
+  db:
+    image: postgres:16
+  redis:
+    image: redis:7-alpine
+  queue:
+    image: rabbitmq:3-management

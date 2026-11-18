@@ -1,0 +1,75 @@
+{
+  "$id": "https://github.com/yadavalli1/Vastitect/blob/main/packages/schema/relationships.schema.json",
+  "title": "relationships",
+  "description": "model/relationships.yaml: every relationship, sorted",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "type": {
+        "type": "string"
+      },
+      "source": {
+        "type": "string"
+      },
+      "target": {
+        "type": "string"
+      },
+      "label": {
+        "type": "string"
+      },
+      "technology": {
+        "type": "string"
+      },
+      "multiplicity": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "properties": {
+        "type": "object",
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "default": {}
+      }
+    },
+    "required": [
+      "id",
+      "type",
+      "source",
+      "target"
+    ],
+    "additionalProperties": false
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

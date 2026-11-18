@@ -1,0 +1,13 @@
+{
+  "name": "@vastitecture/io-archimate",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@vastitecture/notation-archimate": "workspace:*",
+    "@vastitecture/plugin-sdk": "workspace:*",
+    "fast-xml-parser": "^4.5.0"
+  },
+  "devDependencies": { "mcp-archimate": "0.4.2" }
+}

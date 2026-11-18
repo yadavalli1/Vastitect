@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["crates/shell", "apps/desktop/src-tauri"]
+default-members = ["crates/shell"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

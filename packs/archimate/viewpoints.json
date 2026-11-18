@@ -1,0 +1,310 @@
+{
+ "$comment": "Standard viewpoint names as view templates. The element selections were adapted to the ArchiMate 4 element names by this project and are a starting point, not a copy of the specification; edit freely. Entries may be type ids or \"domain:<Domain>\"; a missing list means every element. Grouping and Junction are always allowed.",
+ "viewpoints": [
+  {
+   "id": "archimate:organization",
+   "name": "Organization",
+   "elements": [
+    "archimate:BusinessActor",
+    "archimate:Role",
+    "archimate:Collaboration",
+    "archimate:BusinessInterface",
+    "archimate:Location"
+   ]
+  },
+  {
+   "id": "archimate:business-process-cooperation",
+   "name": "Business Process Cooperation",
+   "elements": [
+    "domain:Business",
+    "archimate:Role",
+    "archimate:Collaboration",
+    "archimate:Process",
+    "archimate:Function",
+    "archimate:Service",
+    "archimate:Event",
+    "archimate:ApplicationComponent",
+    "archimate:DataObject",
+    "archimate:Location"
+   ]
+  },
+  {
+   "id": "archimate:product",
+   "name": "Product",
+   "elements": [
+    "domain:Business",
+    "archimate:Role",
+    "archimate:Process",
+    "archimate:Function",
+    "archimate:Service",
+    "archimate:Event",
+    "archimate:ApplicationComponent",
+    "archimate:ApplicationInterface",
+    "archimate:DataObject",
+    "archimate:Value",
+    "archimate:Artifact",
+    "archimate:Material"
+   ]
+  },
+  {
+   "id": "archimate:application-cooperation",
+   "name": "Application Cooperation",
+   "elements": [
+    "domain:Application",
+    "archimate:Collaboration",
+    "archimate:Process",
+    "archimate:Function",
+    "archimate:Service",
+    "archimate:Event",
+    "archimate:Location"
+   ]
+  },
+  {
+   "id": "archimate:application-usage",
+   "name": "Application Usage",
+   "elements": [
+    "domain:Application",
+    "archimate:BusinessActor",
+    "archimate:Role",
+    "archimate:Collaboration",
+    "archimate:Process",
+    "archimate:Function",
+    "archimate:Service",
+    "archimate:Event",
+    "archimate:BusinessObject"
+   ]
+  },
+  {
+   "id": "archimate:implementation-deployment",
+   "name": "Implementation and Deployment",
+   "elements": [
+    "domain:Application",
+    "domain:Technology",
+    "archimate:Collaboration",
+    "archimate:Process",
+    "archimate:Function",
+    "archimate:Service",
+    "archimate:Event",
+    "archimate:Path"
+   ]
+  },
+  {
+   "id": "archimate:technology",
+   "name": "Technology",
+   "elements": [
+    "domain:Technology",
+    "archimate:Collaboration",
+    "archimate:Process",
+    "archimate:Function",
+    "archimate:Service",
+    "archimate:Event",
+    "archimate:Path",
+    "archimate:Location"
+   ]
+  },
+  {
+   "id": "archimate:technology-usage",
+   "name": "Technology Usage",
+   "elements": [
+    "domain:Technology",
+    "domain:Application",
+    "archimate:Collaboration",
+    "archimate:Process",
+    "archimate:Function",
+    "archimate:Service",
+    "archimate:Event",
+    "archimate:Path"
+   ]
+  },
+  {
+   "id": "archimate:information-structure",
+   "name": "Information Structure",
+   "elements": [
+    "archimate:BusinessObject",
+    "archimate:DataObject",
+    "archimate:Artifact",
+    "archimate:Material",
+    "archimate:Meaning"
+   ]
+  },
+  {
+   "id": "archimate:service-realization",
+   "name": "Service Realization",
+   "elements": [
+    "domain:Business",
+    "domain:Application",
+    "archimate:Role",
+    "archimate:Collaboration",
+    "archimate:Process",
+    "archimate:Function",
+    "archimate:Service",
+    "archimate:Event"
+   ]
+  },
+  {
+   "id": "archimate:physical",
+   "name": "Physical",
+   "elements": [
+    "archimate:Equipment",
+    "archimate:Facility",
+    "archimate:DistributionNetwork",
+    "archimate:Material",
+    "archimate:Node",
+    "archimate:Device",
+    "archimate:Path",
+    "archimate:CommunicationNetwork",
+    "archimate:Location"
+   ]
+  },
+  {
+   "id": "archimate:layered",
+   "name": "Layered"
+  },
+  {
+   "id": "archimate:stakeholder",
+   "name": "Stakeholder",
+   "elements": [
+    "archimate:Stakeholder",
+    "archimate:Driver",
+    "archimate:Assessment",
+    "archimate:Goal",
+    "archimate:Outcome"
+   ]
+  },
+  {
+   "id": "archimate:goal-realization",
+   "name": "Goal Realization",
+   "elements": [
+    "archimate:Goal",
+    "archimate:Outcome",
+    "archimate:Principle",
+    "archimate:Requirement"
+   ]
+  },
+  {
+   "id": "archimate:requirements-realization",
+   "name": "Requirements Realization",
+   "elements": [
+    "archimate:Goal",
+    "archimate:Outcome",
+    "archimate:Principle",
+    "archimate:Requirement",
+    "domain:Business",
+    "domain:Application",
+    "domain:Technology",
+    "archimate:Role",
+    "archimate:Process",
+    "archimate:Function",
+    "archimate:Service"
+   ]
+  },
+  {
+   "id": "archimate:motivation",
+   "name": "Motivation",
+   "elements": [
+    "domain:Motivation"
+   ]
+  },
+  {
+   "id": "archimate:strategy",
+   "name": "Strategy",
+   "elements": [
+    "domain:Strategy",
+    "archimate:Outcome"
+   ]
+  },
+  {
+   "id": "archimate:capability-map",
+   "name": "Capability Map",
+   "elements": [
+    "archimate:Capability",
+    "archimate:Resource",
+    "archimate:Outcome"
+   ]
+  },
+  {
+   "id": "archimate:outcome-realization",
+   "name": "Outcome Realization",
+   "elements": [
+    "archimate:Outcome",
+    "archimate:Capability",
+    "archimate:Resource",
+    "archimate:ValueStream",
+    "archimate:CourseOfAction",
+    "archimate:Value",
+    "archimate:Meaning"
+   ]
+  },
+  {
+   "id": "archimate:resource-map",
+   "name": "Resource Map",
+   "elements": [
+    "archimate:Resource",
+    "archimate:Capability",
+    "archimate:WorkPackage"
+   ]
+  },
+  {
+   "id": "archimate:value-stream",
+   "name": "Value Stream",
+   "elements": [
+    "archimate:ValueStream",
+    "archimate:Capability",
+    "archimate:Outcome",
+    "archimate:Stakeholder",
+    "archimate:Value"
+   ]
+  },
+  {
+   "id": "archimate:project",
+   "name": "Project",
+   "elements": [
+    "domain:Implementation",
+    "archimate:Goal",
+    "archimate:BusinessActor",
+    "archimate:Role"
+   ]
+  },
+  {
+   "id": "archimate:migration",
+   "name": "Migration",
+   "elements": [
+    "archimate:Plateau",
+    "archimate:Assessment"
+   ]
+  },
+  {
+   "id": "archimate:implementation-migration",
+   "name": "Implementation and Migration",
+   "elements": [
+    "domain:Implementation",
+    "domain:Motivation",
+    "domain:Business",
+    "domain:Application",
+    "domain:Technology",
+    "archimate:Role",
+    "archimate:Process",
+    "archimate:Function",
+    "archimate:Service",
+    "archimate:Location"
+   ]
+  },
+  {
+   "id": "archimate:application",
+   "name": "Application (cross-notation)",
+   "elements": [
+    "archimate:ApplicationComponent",
+    "archimate:ApplicationInterface",
+    "archimate:DataObject",
+    "archimate:BusinessActor",
+    "archimate:Role",
+    "archimate:Service",
+    "archimate:Function",
+    "archimate:Process",
+    "archimate:SystemSoftware",
+    "archimate:Node",
+    "archimate:Artifact"
+   ]
+  }
+ ]
+}

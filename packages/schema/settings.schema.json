@@ -1,0 +1,89 @@
+{
+  "$id": "https://github.com/yadavalli1/Vastitect/blob/main/packages/schema/settings.schema.json",
+  "title": "settings",
+  "description": "vastitecture.yaml: workspace settings, enabled packs and the cross-notation mapping table",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "number",
+      "const": 1,
+      "default": 1
+    },
+    "name": {
+      "type": "string"
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "concept": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "members": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "concept",
+          "members"
+        ],
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "pluginSettings": {
+      "type": "object",
+      "additionalProperties": {},
+      "default": {}
+    },
+    "savedFilters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string",
+            "default": ""
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

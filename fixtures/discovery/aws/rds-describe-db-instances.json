@@ -1,0 +1,1 @@
+{ "DBInstances": [{ "DBInstanceIdentifier": "orders-db", "Engine": "postgres", "DBSubnetGroup": { "VpcId": "vpc-0a1" } }] }

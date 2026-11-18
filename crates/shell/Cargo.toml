@@ -1,0 +1,13 @@
+[package]
+name = "vastitecture-shell"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Thin native services for Vastitecture: workspace files, search index, Git status. No UI or domain logic."
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,21 @@
+{
+  "name": "@vastitecture/core",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./defaults/*": "./defaults/*"
+  },
+  "dependencies": {
+    "immer": "^10.1.1",
+    "js-yaml": "4.1.0",
+    "yaml": "^2.6.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "4.0.9",
+    "zod-to-json-schema": "3.24.1"
+  }
+}

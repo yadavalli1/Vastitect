@@ -1,0 +1,111 @@
+{
+ "$comment": "ArchiMate 3.1/3.2 -> 4 migration rules. `rename` covers concepts merged into the Common Domain (the original domain is kept in the `domain` property); `removed` covers the seven concepts dropped in ArchiMate 4.",
+ "rename": {
+  "BusinessProcess": {
+   "to": "archimate:Process",
+   "domain": "Business"
+  },
+  "BusinessFunction": {
+   "to": "archimate:Function",
+   "domain": "Business"
+  },
+  "BusinessService": {
+   "to": "archimate:Service",
+   "domain": "Business"
+  },
+  "BusinessEvent": {
+   "to": "archimate:Event",
+   "domain": "Business"
+  },
+  "BusinessCollaboration": {
+   "to": "archimate:Collaboration",
+   "domain": "Business"
+  },
+  "ApplicationProcess": {
+   "to": "archimate:Process",
+   "domain": "Application"
+  },
+  "ApplicationFunction": {
+   "to": "archimate:Function",
+   "domain": "Application"
+  },
+  "ApplicationService": {
+   "to": "archimate:Service",
+   "domain": "Application"
+  },
+  "ApplicationEvent": {
+   "to": "archimate:Event",
+   "domain": "Application"
+  },
+  "ApplicationCollaboration": {
+   "to": "archimate:Collaboration",
+   "domain": "Application"
+  },
+  "TechnologyProcess": {
+   "to": "archimate:Process",
+   "domain": "Technology"
+  },
+  "TechnologyFunction": {
+   "to": "archimate:Function",
+   "domain": "Technology"
+  },
+  "TechnologyService": {
+   "to": "archimate:Service",
+   "domain": "Technology"
+  },
+  "TechnologyEvent": {
+   "to": "archimate:Event",
+   "domain": "Technology"
+  },
+  "TechnologyCollaboration": {
+   "to": "archimate:Collaboration",
+   "domain": "Technology"
+  },
+  "BusinessRole": {
+   "to": "archimate:Role",
+   "domain": "Business"
+  },
+  "ImplementationEvent": {
+   "to": "archimate:Event",
+   "domain": "Implementation"
+  }
+ },
+ "removed": {
+  "BusinessInteraction": {
+   "to": "archimate:Process",
+   "domain": "Business",
+   "note": "Interaction became a Process; the elements assigned to it are its participants. Review the assigned Collaboration."
+  },
+  "ApplicationInteraction": {
+   "to": "archimate:Process",
+   "domain": "Application",
+   "note": "Interaction became a Process; the elements assigned to it are its participants. Review the assigned Collaboration."
+  },
+  "TechnologyInteraction": {
+   "to": "archimate:Process",
+   "domain": "Technology",
+   "note": "Interaction became a Process; the elements assigned to it are its participants. Review the assigned Collaboration."
+  },
+  "Representation": {
+   "to": "archimate:Material",
+   "note": "Representation was removed. Mapped to Material; use Data Object or Artifact instead if it is digital."
+  },
+  "Contract": {
+   "to": "archimate:BusinessObject",
+   "note": "Contract was removed and became a Business Object."
+  },
+  "Constraint": {
+   "to": "archimate:Requirement",
+   "note": "Constraint was removed and became a Requirement."
+  },
+  "Gap": {
+   "to": "archimate:Assessment",
+   "note": "Gap was removed and became an Assessment; keep it associated with the two Plateaus it compares."
+  }
+ },
+ "junctions": {
+  "AndJunction": "and",
+  "OrJunction": "or",
+  "Junction": "and"
+ }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "example.wardley",
+  "name": "Wardley maps (example)",
+  "version": "0.1.0",
+  "apiVersion": "1.0.0",
+  "description": "Example plugin: a Wardley-map notation with an evolution check and a side panel. Shows every part of the plugin API a notation needs.",
+  "entry": "index.js",
+  "capabilities": ["notation", "validator", "panel"],
+  "permissions": {}
+}

@@ -1,0 +1,9 @@
+{
+  "name": "create-vastitecture-plugin",
+  "version": "0.1.0",
+  "description": "Scaffold a Vastitecture plugin: npm create vastitecture-plugin my-plugin",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "create-vastitecture-plugin": "bin/create.js" },
+  "files": ["bin", "templates"]
+}
