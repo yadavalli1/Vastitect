@@ -1,7 +1,8 @@
 name: Release
 
-# Builds installers for macOS (universal), Windows (MSI) and Linux (AppImage, .deb) and attaches them
-# to a draft GitHub release. Push a tag like v0.2.0, or run it by hand.
+# Builds installers for macOS (universal), Windows (MSI) and Linux (AppImage, .deb).
+# - Tag push (v*) or manual run: attaches them to a draft GitHub release.
+# - Pull request labelled `build-installers`: uploads them as workflow artifacts only (no tag, no release).
 #
 # Signing is optional and switched on by repository secrets. Without them the installers are unsigned.
 #   macOS:   APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
@@ -14,12 +15,15 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+  pull_request:
+    types: [labeled, synchronize, opened, reopened]
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'build-installers')
     strategy:
       fail-fast: false
       matrix:
@@ -55,12 +59,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Import the Windows signing certificate
-        if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE != ''
+        if: runner.os == 'Windows'
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         shell: pwsh
         run: |
+          if (-not $env:WINDOWS_CERTIFICATE) { Write-Output "::notice::No WINDOWS_CERTIFICATE secret: the MSI will be unsigned."; exit 0 }
           $bytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
           [IO.File]::WriteAllBytes("cert.pfx", $bytes)
           $cert = Import-PfxCertificate -FilePath cert.pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force)
@@ -80,7 +85,8 @@ jobs:
             echo "::notice::No TAURI_SIGNING_PRIVATE_KEY secret: building without auto-update artifacts."
           fi
 
-      - uses: tauri-apps/tauri-action@v0
+      - name: Build${{ github.event_name != 'pull_request' && ' and attach to a draft release' || '' }}
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -93,10 +99,24 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}-dev.{1}', '0.1.0', github.run_number) }}
+          # Empty on pull requests: build only, no tag or release.
+          tagName: ${{ github.event_name == 'pull_request' && '' || (github.ref_type == 'tag' && github.ref_name || format('v{0}-dev.{1}', '0.1.0', github.run_number)) }}
           releaseName: "Vastitecture ${{ github.ref_type == 'tag' && github.ref_name || 'development build' }}"
           releaseBody: "See the assets below for macOS, Windows and Linux installers."
           releaseDraft: true
           prerelease: ${{ github.ref_type != 'tag' }}
           includeUpdaterJson: ${{ env.UPDATER_CONFIG != '{}' }}
           args: ${{ matrix.args }} --config ${{ env.UPDATER_CONFIG }}${{ env.TAURI_SIGN_CONFIG != '' && format(' --config {0}', env.TAURI_SIGN_CONFIG) || '' }}
+
+      - name: Upload the installers (pull requests)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vastitecture-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            target/**/release/bundle/dmg/*.dmg
+            target/**/release/bundle/macos/*.app.tar.gz
+            target/**/release/bundle/msi/*.msi
+            target/**/release/bundle/appimage/*.AppImage
+            target/**/release/bundle/deb/*.deb
