@@ -162,6 +162,11 @@ fn plugin_read(dir: String, file: String) -> Result<String, String> {
     shell::read_plugin_file(Path::new(&dir), &file)
 }
 
+#[tauri::command]
+fn reveal_folder(path: String) -> Result<(), String> {
+    shell::reveal_folder(Path::new(&path))
+}
+
 /// Read-only AWS discovery through the user's own AWS CLI and local profile.
 #[tauri::command]
 async fn aws_cli(service: String, operation: String, profile: Option<String>, region: Option<String>) -> Result<String, String> {
@@ -196,7 +201,8 @@ pub fn run() {
             http_fetch,
             plugins_list,
             plugin_read,
-            aws_cli
+            aws_cli,
+            reveal_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vastitecture");

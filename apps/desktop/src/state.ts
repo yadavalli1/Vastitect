@@ -13,7 +13,7 @@ import {
   type Workspace,
   type WorkspaceFS,
 } from "@vastitecture/core";
-import { LocalStorageFS, isTauri, lastWorkspace } from "./platform";
+import { LocalStorageFS, TauriFS, explainFsError, isTauri, lastWorkspace } from "./platform";
 import { activateBuiltins, installInBrowser, loadInstalledPlugins, registry } from "./plugins";
 import { t } from "./i18n";
 import { buildSample } from "./sample";
@@ -124,7 +124,7 @@ export function saveNow(): Promise<void> {
   if (!p) return Promise.resolve();
   set({ saveState: "saving" });
   saving = saving
-    .then(() => p.save(model.state))
+    .then(() => p.save(model.state).catch((e) => Promise.reject(new Error(explainFsError(e)))))
     .then(() => set({ saveState: "saved" }))
     .catch((e) => {
       console.error(e);
@@ -170,9 +170,16 @@ export async function openWorkspace(fs: WorkspaceFS, initial?: Workspace) {
   const { workspace, issues } = await persister.load();
   const ws = initial ?? workspace;
   model.reset(ws);
-  if (initial) await persister.save(ws);
+  if (initial) {
+    try {
+      await persister.save(ws);
+    } catch (e) {
+      throw new Error(t("Could not write the workspace to {place}: {error}", { place: fs.label, error: explainFsError(e) }));
+    }
+  }
   unwatch = fs.watch?.(() => void onExternalChange());
   if (fs instanceof LocalStorageFS) lastWorkspace.set(fs.name);
+  else if (fs instanceof TauriFS) lastWorkspace.set(`folder:${fs.root}`);
   set({
     phase: "ready",
     fsLabel: fs.label,
@@ -211,8 +218,20 @@ export async function boot() {
   await activateBuiltins();
   await (await import("./hostExporters")).activateHostExporters();
   document.documentElement.dataset.theme = app.getState().theme;
-  const name = lastWorkspace.get();
-  const fs = new LocalStorageFS(name ?? "sample");
+  const last = lastWorkspace.get();
+  // Reopen the folder workspace used last time; if it has gone, fall back to the app's own storage.
+  if (last?.startsWith("folder:") && isTauri) {
+    try {
+      await openWorkspace(new TauriFS(last.slice(7)));
+      void loadInstalledPlugins(last.slice(7));
+      return;
+    } catch (e) {
+      console.error(e);
+      setTimeout(() => toast(t("Could not reopen {path}: {error}", { path: last.slice(7), error: explainFsError(e) })), 500);
+    }
+  }
+  const name = last && !last.startsWith("folder:") ? last : "sample";
+  const fs = new LocalStorageFS(name);
   const existing = Object.keys(await fs.readAll()).length > 0;
   // Zero-config start: first launch opens the sample workspace.
   await openWorkspace(fs, existing ? undefined : buildSample());
@@ -232,7 +251,14 @@ export function select(elements: Id[] = [], relationships: Id[] = []) {
 }
 
 /** Test hook: lets Playwright inspect the model without scraping the DOM. */
-(window as unknown as Record<string, unknown>).__vastitecture = { model, app, registry, installPlugin: installInBrowser };
+(window as unknown as Record<string, unknown>).__vastitecture = {
+  model,
+  app,
+  registry,
+  installPlugin: installInBrowser,
+  // Desktop test hook: open or create a folder workspace without the native folder picker.
+  openFolder: async (path: string, sample = false) => openWorkspace(new TauriFS(path), sample ? buildSample() : undefined),
+};
 
 /** Desktop: full-text hits from the SQLite FTS5 index over the workspace files, mapped back to entities. */
 export async function fullTextSearch(query: string): Promise<{ kind: "element" | "view" | "adr"; id: string; snippet: string }[]> {

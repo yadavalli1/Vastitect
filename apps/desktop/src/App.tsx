@@ -87,7 +87,7 @@ function Toolbar({ problemCount }: { problemCount: number }) {
   const saveLabel = { saved: t("Saved"), dirty: t("Unsaved changes"), saving: t("Saving…"), error: t("Save failed") }[s.saveState];
   return (
     <header className="panel chrome flex items-center gap-1 border-b" style={{ padding: "5px 8px", flexWrap: "wrap" }} role="toolbar" aria-label={t("Main toolbar")}>
-      <button className="btn ghost" onClick={() => set({ newOpen: true })} title={s.fsLabel}><strong>{t("Vastitecture")}</strong> · {name}</button>
+      <button className="btn ghost" onClick={() => set({ newOpen: true })} title={s.fsLabel.startsWith("browser:") ? t("Kept inside the app") : s.fsLabel}><strong>{t("Vastitecture")}</strong> · {name}{!s.fsLabel.startsWith("browser:") && s.fsLabel ? " 📁" : ""}</button>
       <span className="muted" data-testid="save-state" style={{ fontSize: 11, minWidth: 70 }}>{saveLabel}</span>
       <button className="btn" onClick={undo} disabled={!model.canUndo} aria-label={t("Undo")} title={t("Undo")}>↶</button>
       <button className="btn" onClick={redo} disabled={!model.canRedo} aria-label={t("Redo")} title={t("Redo")}>↷</button>

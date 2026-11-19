@@ -394,3 +394,18 @@ mod aws_tests {
         assert!(aws_cli("ec2", "run-instances", None, None).is_err());
     }
 }
+
+/// Open a directory in the platform's file manager (Finder, Explorer, or the desktop's default).
+pub fn reveal_folder(path: &Path) -> Result<()> {
+    if !path.is_dir() {
+        return Err(format!("{} is not a folder", path.display()));
+    }
+    let program = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "windows") {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    Command::new(program).arg(path).spawn().map(|_| ()).map_err(|e| format!("Could not open the folder: {e}"))
+}

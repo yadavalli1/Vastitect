@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { diffPatch } from "@vastitecture/core";
 import { app, blankWorkspace, model, openWorkspace, resolveConflict, set, toast, useApp } from "../state";
-import { LocalStorageFS, canPickFolder, pickFolder } from "../platform";
+import { LocalStorageFS, TauriFS, canPickFolder, explainFsError, isTauri, lastWorkspace, pickFolder, revealFolder } from "../platform";
+import type { WorkspaceFS } from "@vastitecture/core";
 import { buildSample } from "../sample";
 import { runLayout } from "../ops";
 import { t } from "../i18n";
@@ -25,6 +26,9 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
 export function WorkspaceDialog() {
   const [name, setName] = useState("my-architecture");
   const [template, setTemplate] = useState<"blank" | "sample">("blank");
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const fsLabel = useApp((s) => s.fsLabel);
   const close = () => set({ newOpen: false });
   const make = () => (template === "sample" ? { ...buildSample(), name } : blankWorkspace(name));
   const existing = useMemo(() => {
@@ -35,8 +39,41 @@ export function WorkspaceDialog() {
     }
     return [...names];
   }, []);
+  const recentFolders = isTauri ? lastWorkspace.recent().filter((r) => r.startsWith("folder:")).map((r) => r.slice(7)) : [];
+  const inFolder = isTauri && !fsLabel.startsWith("browser:");
+  // Every action reports its failure here instead of failing silently.
+  const run = (fn: () => Promise<void>) => async () => {
+    setError(undefined);
+    setBusy(true);
+    try {
+      await fn();
+    } catch (e) {
+      console.error(e);
+      setError(explainFsError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const openOrCreate = async (fs: WorkspaceFS, create: boolean) => {
+    const has = Object.keys(await fs.readAll()).length > 0;
+    if (create && has) toast(t("That folder already holds a workspace, so it was opened instead"));
+    await openWorkspace(fs, create && !has ? make() : undefined);
+    if (create && !has && fs instanceof TauriFS) toast(t("Workspace created in {path}", { path: fs.root }));
+    close();
+  };
   return (
     <Modal title={t("Workspace")} onClose={close}>
+      <div className="panel" style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 8, marginBottom: 8 }} data-testid="workspace-location">
+        <div className="label" style={{ marginTop: 0 }}>{t("Current workspace")}</div>
+        {inFolder ? (
+          <div className="flex items-center gap-2">
+            <code style={{ overflowWrap: "anywhere" }}>{fsLabel}</code>
+            <button className="btn" onClick={run(() => revealFolder(fsLabel))}>{navigator.platform.includes("Mac") ? t("Show in Finder") : t("Show folder")}</button>
+          </div>
+        ) : (
+          <div className="muted">{t("Kept inside the app, not in a folder on disk. Use “Create in a folder…” to get files you can open and commit to Git.")}</div>
+        )}
+      </div>
       <div className="h" style={{ paddingLeft: 0 }}>{t("New workspace")}</div>
       <label className="label" htmlFor="ws-name">{t("Name")}</label>
       <input id="ws-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
@@ -47,35 +84,31 @@ export function WorkspaceDialog() {
       </select>
       <div className="flex gap-2 mt-3">
         {canPickFolder() && (
-          <button className="btn primary" onClick={async () => {
+          <button className="btn primary" disabled={busy} onClick={run(async () => {
             const fs = await pickFolder();
-            if (!fs) return;
-            const has = Object.keys(await fs.readAll()).length > 0;
-            if (has) toast(t("That folder already holds a workspace, so it was opened instead"));
-            await openWorkspace(fs, has ? undefined : make());
-            close();
-          }}>{t("Create in a folder…")}</button>
+            if (fs) await openOrCreate(fs, true);
+          })}>{t("Create in a folder…")}</button>
         )}
-        <button className="btn" onClick={async () => {
-          const key = name.trim().replace(/[^\w.-]+/g, "-") || "workspace";
-          const fs = new LocalStorageFS(key);
-          const has = Object.keys(await fs.readAll()).length > 0;
-          await openWorkspace(fs, has ? undefined : make());
-          close();
-        }}>{t("Create in browser storage")}</button>
+        <button className="btn" disabled={busy} onClick={run(async () => openOrCreate(new LocalStorageFS(name.trim().replace(/[^\w.-]+/g, "-") || "workspace"), true))}>
+          {isTauri ? t("Keep inside the app (no folder)") : t("Create in browser storage")}
+        </button>
       </div>
       <div className="h" style={{ paddingLeft: 0, marginTop: 14 }}>{t("Open workspace")}</div>
       <div className="flex gap-2" style={{ flexWrap: "wrap" }}>
         {canPickFolder() && (
-          <button className="btn" onClick={async () => {
+          <button className="btn" disabled={busy} onClick={run(async () => {
             const fs = await pickFolder();
-            if (fs) (await openWorkspace(fs), close());
-          }}>{t("Open folder…")}</button>
+            if (fs) await openOrCreate(fs, false);
+          })}>{t("Open folder…")}</button>
         )}
+        {recentFolders.map((p) => (
+          <button key={p} className="btn" title={p} disabled={busy} onClick={run(async () => openOrCreate(new TauriFS(p), false))}>📁 {p.split(/[\\/]/).pop()}</button>
+        ))}
         {existing.map((n) => (
-          <button key={n} className="btn" onClick={async () => (await openWorkspace(new LocalStorageFS(n)), close())}>{n}</button>
+          <button key={n} className="btn" disabled={busy} onClick={run(async () => openOrCreate(new LocalStorageFS(n), false))}>{n}</button>
         ))}
       </div>
+      {error && <p role="alert" className="sev-error" data-testid="workspace-error" style={{ whiteSpace: "pre-wrap" }}>{error}</p>}
       {!canPickFolder() && <p className="muted">{t("This browser cannot open folders. Use the desktop app or a Chromium browser to work with a Git folder.")}</p>}
     </Modal>
   );
