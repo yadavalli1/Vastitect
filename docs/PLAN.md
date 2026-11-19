@@ -106,6 +106,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] ADRs: storage, linking, properties-panel display, editor with preview
 - [x] Reports to CSV, Excel, Markdown
 - [x] AWS and Git repository connectors
+- [x] ServiceNow CMDB (Table API or exports), Google Cloud and Azure connectors (read-only CLI or saved output)
+- [ ] TODO: write-back to the ServiceNow CMDB (connectors are read-only today)
 - [x] AI assistant (off by default): OpenAI-compatible endpoint, keychain storage, all changes as reviewable diffs
 - [x] Search: in-memory everywhere, SQLite FTS5 index on desktop
 - [x] Merge view for conflicting edits

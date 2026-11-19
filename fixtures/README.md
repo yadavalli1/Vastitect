@@ -18,3 +18,7 @@ samples do not exercise. They are not copies of third-party material.
 
 No published docker-compose, Kubernetes, Helm, Terraform or AsyncAPI sample was reachable from the
 build environment, so `discovery/` holds files written for this project in those formats.
+
+`discovery/servicenow/`, `discovery/gcp/` and `discovery/azure/` were also written for this project. They
+follow the shape of ServiceNow Table API responses (including `sysparm_display_value=all` objects and a list
+CSV export), `gcloud … --format=json` and `az … -o json` output, with invented names and ids.

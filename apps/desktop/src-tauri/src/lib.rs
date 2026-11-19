@@ -167,10 +167,10 @@ fn reveal_folder(path: String) -> Result<(), String> {
     shell::reveal_folder(Path::new(&path))
 }
 
-/// Read-only AWS discovery through the user's own AWS CLI and local profile.
+/// Read-only cloud discovery through the user's own aws, gcloud or az CLI and local login.
 #[tauri::command]
-async fn aws_cli(service: String, operation: String, profile: Option<String>, region: Option<String>) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || shell::aws_cli(&service, &operation, profile.as_deref(), region.as_deref()))
+async fn cloud_cli(tool: String, args: Vec<String>, flags: Vec<(String, String)>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || shell::cloud_cli(&tool, &args, &flags))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -201,7 +201,7 @@ pub fn run() {
             http_fetch,
             plugins_list,
             plugin_read,
-            aws_cli,
+            cloud_cli,
             reveal_folder
         ])
         .run(tauri::generate_context!())

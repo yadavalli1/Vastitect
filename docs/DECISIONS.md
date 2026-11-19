@@ -86,3 +86,12 @@ about four times faster. Both use the JSON schema subset, so they agree.
 ## D-23 Updater artifacts are opt-in
 `createUpdaterArtifacts` is off in `tauri.conf.json` so local and unsigned builds work. The release
 workflow turns it on when the `TAURI_SIGNING_PRIVATE_KEY` secret exists.
+
+## D-24 Google Cloud and Azure use their CLIs; ServiceNow uses its REST Table API
+Same reasoning as D-21: the desktop app runs an allow-list of read-only `list`/`describe`/`show` commands
+with the user's own `gcloud` or `az` sign-in (`cloud_cli` in the Rust shell rejects anything else and only
+accepts `--project`, `--subscription`, `--profile` and `--region` flags). ServiceNow has no comparable CLI,
+so the connector calls the Table API directly through the plugin's permission-checked `net.fetch`, limited to
+`*.service-now.com` and `*.servicenowservices.com`. Its password or OAuth token is stored only in the OS
+keychain. Browsers block those requests (CORS), so the web build imports Table API JSON or list CSV exports
+instead. All three are read-only; CMDB write-back is not built.

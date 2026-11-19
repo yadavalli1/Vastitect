@@ -409,3 +409,80 @@ pub fn reveal_folder(path: &Path) -> Result<()> {
     };
     Command::new(program).arg(path).spawn().map(|_| ()).map_err(|e| format!("Could not open the folder: {e}"))
 }
+
+/// Read-only cloud CLI calls for discovery. Only listing and describing verbs are accepted, flags come
+/// from a short allow-list, and every value is restricted to a safe character set, so no plugin or
+/// connector can make the user's cloud login change anything.
+pub fn cloud_read_only(tool: &str, args: &[String]) -> Result<()> {
+    let word = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    if args.is_empty() || args.len() > 6 || !args.iter().all(|a| word(a)) {
+        return Err(format!("Refusing {tool} command: arguments must be plain lowercase words"));
+    }
+    let verb = args.last().unwrap().as_str();
+    let ok = match tool {
+        "aws" => args.len() == 2 && (verb.starts_with("describe-") || verb.starts_with("list-") || (args[0] == "sts" && verb == "get-caller-identity")),
+        "gcloud" => matches!(verb, "list" | "describe") || args == ["config", "get-value", "project"],
+        "az" => matches!(verb, "list" | "show"),
+        _ => return Err(format!("Unknown cloud CLI {tool}")),
+    };
+    if ok { Ok(()) } else { Err(format!("Refusing {tool} {}: only read-only list/describe/show commands are allowed", args.join(" "))) }
+}
+
+/// Run one read-only cloud CLI command with the user's own login and return its JSON output.
+/// `flags` are (name, value) pairs such as ("--profile", "dev"); names must be on the tool's allow-list.
+pub fn cloud_cli(tool: &str, args: &[String], flags: &[(String, String)]) -> Result<String> {
+    cloud_read_only(tool, args)?;
+    let allowed: &[&str] = match tool {
+        "aws" => &["--profile", "--region"],
+        "gcloud" => &["--project"],
+        "az" => &["--subscription"],
+        _ => &[],
+    };
+    let safe = |s: &str| !s.is_empty() && s.len() <= 128 && s.chars().all(|c| c.is_ascii_alphanumeric() || " -_.".contains(c));
+    let mut cmd = Command::new(if cfg!(windows) && tool != "aws" { format!("{tool}.cmd") } else { tool.to_string() });
+    cmd.args(args);
+    match tool {
+        "aws" => cmd.args(["--output", "json", "--no-cli-pager"]),
+        "gcloud" => cmd.args(["--format=json", "--quiet"]),
+        _ => cmd.args(["-o", "json", "--only-show-errors"]),
+    };
+    for (name, value) in flags {
+        if value.is_empty() {
+            continue;
+        }
+        if !allowed.contains(&name.as_str()) || !safe(value) {
+            return Err(format!("Refusing flag {name} for {tool}"));
+        }
+        cmd.args([name.as_str(), value.as_str()]);
+    }
+    let out = cmd.output().map_err(|e| format!("Could not run {tool} ({e}). Is it installed, on PATH, and signed in?"))?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}
+
+#[cfg(test)]
+mod cloud_tests {
+    use super::*;
+    fn a(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn only_read_only_cloud_commands_are_allowed() {
+        assert!(cloud_read_only("gcloud", &a(&["compute", "instances", "list"])).is_ok());
+        assert!(cloud_read_only("gcloud", &a(&["config", "get-value", "project"])).is_ok());
+        assert!(cloud_read_only("az", &a(&["network", "vnet", "list"])).is_ok());
+        assert!(cloud_read_only("az", &a(&["account", "show"])).is_ok());
+        assert!(cloud_read_only("aws", &a(&["ec2", "describe-vpcs"])).is_ok());
+        assert!(cloud_read_only("gcloud", &a(&["compute", "instances", "delete"])).is_err());
+        assert!(cloud_read_only("gcloud", &a(&["config", "set", "project"])).is_err());
+        assert!(cloud_read_only("az", &a(&["vm", "delete"])).is_err());
+        assert!(cloud_read_only("az", &a(&["group", "list;rm"])).is_err());
+        assert!(cloud_read_only("az", &a(&["vm", "list", "--query"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["get", "pods"])).is_err());
+        assert!(cloud_cli("az", &a(&["vm", "list"]), &[("--resource-group".into(), "x".into())]).is_err());
+        assert!(cloud_cli("gcloud", &a(&["compute", "instances", "list"]), &[("--project".into(), "a;b".into())]).is_err());
+    }
+}

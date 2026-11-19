@@ -1,0 +1,7 @@
+{"result":[
+ {"sys_id":"ap1","name":"shop-web","sys_class_name":"cmdb_ci_appl","version":"4.2","install_status":"Installed"},
+ {"sys_id":"ap2","name":"shop-api","sys_class_name":"cmdb_ci_app_server_tomcat","install_status":"Installed"},
+ {"sys_id":"db1","name":"shop-db","sys_class_name":"cmdb_ci_db_postgresql_instance","install_status":"Installed"},
+ {"sys_id":"sv1","name":"Order Placement","sys_class_name":"cmdb_ci_service_discovered","operational_status":"Operational"},
+ {"sys_id":"x1","name":"Desk phone 42","sys_class_name":"cmdb_ci_ip_phone"}
+]}

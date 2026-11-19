@@ -1,0 +1,10 @@
+{"result":[
+ {"parent":{"value":"ba1","display_value":"Online Shop"},"child":{"value":"ap1","display_value":"shop-web"},"type":{"value":"t1","display_value":"Contains::Contained by"}},
+ {"parent":{"value":"ba1","display_value":"Online Shop"},"child":{"value":"ap2","display_value":"shop-api"},"type":{"value":"t1","display_value":"Contains::Contained by"}},
+ {"parent":{"value":"ap1","display_value":"shop-web"},"child":{"value":"ap2","display_value":"shop-api"},"type":{"value":"t2","display_value":"Depends on::Used by"}},
+ {"parent":{"value":"ap2","display_value":"shop-api"},"child":{"value":"db1","display_value":"shop-db"},"type":{"value":"t2","display_value":"Depends on::Used by"}},
+ {"parent":{"value":"ap1","display_value":"shop-web"},"child":{"value":"srv1","display_value":"lnx-web-01"},"type":{"value":"t3","display_value":"Runs on::Runs"}},
+ {"parent":{"value":"db1","display_value":"shop-db"},"child":{"value":"srv2","display_value":"lnx-db-01"},"type":{"value":"t3","display_value":"Runs on::Runs"}},
+ {"parent":{"value":"sv1","display_value":"Order Placement"},"child":{"value":"ba1","display_value":"Online Shop"},"type":{"value":"t4","display_value":"Provided by::Provides"}},
+ {"parent":{"value":"ba1","display_value":"Online Shop"},"child":{"value":"ba2","display_value":"Legacy Billing"},"type":{"value":"t5","display_value":"Sends data to::Receives data from"}}
+]}

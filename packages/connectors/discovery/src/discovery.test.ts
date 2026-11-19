@@ -193,3 +193,93 @@ describe("Git repository", () => {
     expect(re.elements![0]).toMatchObject({ id: "existing", properties: { owner: "x", technology: "TypeScript" } });
   });
 });
+
+import { discoverAzure, discoverGcp, fetchServiceNow, parseServiceNowFiles, serviceNowToPatch } from "./index";
+const dirFiles = (sub: string) => {
+  const dir = new URL(`../../../../fixtures/discovery/${sub}/`, import.meta.url).pathname;
+  return readdirSync(dir).map((f) => file(dir + f, f));
+};
+
+describe("ServiceNow CMDB", () => {
+  it("reads Table API JSON and CSV exports into applications, services, hosts and relationships", () => {
+    const ws = apply(serviceNowToPatch(parseServiceNowFiles(dirFiles("servicenow"))));
+    valid(ws);
+    const by = (n: string) => Object.values(ws.elements).find((e) => e.name === n)!;
+    expect(by("Online Shop")).toMatchObject({ type: "c4:SoftwareSystem", owner: "Priya Shah", lifecycle: { phase: "active" }, properties: { criticality: "Mission critical", cmdbClass: "cmdb_ci_business_app" } });
+    expect(by("Legacy Billing").lifecycle?.phase).toBe("endOfLife");
+    expect(by("shop-web")).toMatchObject({ type: "c4:Container", parent: by("Online Shop").id, properties: { version: "4.2" } });
+    expect(by("shop-api").parent).toBe(by("Online Shop").id);
+    expect(by("shop-db").properties.kind).toBe("Database");
+    expect(by("Order Placement").type).toBe("archimate:Service");
+    expect(by("lnx-db-01")).toMatchObject({ type: "c4:DeploymentNode", properties: { technology: "Red Hat Enterprise Linux 9" } });
+    expect(names(ws)).not.toContain("Desk phone 42");
+    expect(rels(ws)).toEqual(expect.arrayContaining(["shop-web -> shop-api (Depends on)", "shop-api -> shop-db (Depends on)", "Online Shop -> Order Placement (Provides)", "Online Shop -> Legacy Billing (Sends data to)"]));
+    // "Runs on" places the application on its server in the deployment view
+    const dep = Object.values(ws.views).find((v) => v.viewpoint === "c4:deployment")!;
+    expect(ws.elements[dep.nodes.find((n) => n.element === by("shop-web").id)!.parent!].name).toBe("lnx-web-01");
+    expect(Object.values(ws.views).map((v) => v.viewpoint).sort()).toEqual(["archimate:application", "c4:container", "c4:deployment", "c4:landscape"]);
+  });
+
+  it("reads live through the Table API with paging, Basic auth, and a clear error on refused access", async () => {
+    const calls: { url: string; auth?: string }[] = [];
+    const big = Array.from({ length: 500 }, (_, i) => ({ sys_id: `a${i}`, name: `App ${i}`, sys_class_name: "cmdb_ci_appl" }));
+    const fake = async (url: string, init?: { headers?: Record<string, string> }) => {
+      calls.push({ url, auth: init?.headers?.Authorization });
+      const u = new URL(url);
+      const table = u.pathname.split("/").pop();
+      const offset = Number(u.searchParams.get("sysparm_offset"));
+      if (table === "cmdb_ci_appl") return { status: 200, text: JSON.stringify({ result: offset === 0 ? big : [{ sys_id: "z", name: "Last", sys_class_name: "cmdb_ci_appl" }] }) };
+      if (table === "cmdb_rel_ci") return { status: 200, text: JSON.stringify({ result: [{ parent: "a1", child: "z", type: "Depends on::Used by" }] }) };
+      return { status: 404, text: "{}" };
+    };
+    const data = await fetchServiceNow(fake, { instance: "acme", username: "reader", password: "pw", query: "operational_status=1" });
+    expect(data.instance).toBe("https://acme.service-now.com");
+    expect(data.cis).toHaveLength(501);
+    expect(calls[0].auth).toBe(`Basic ${btoa("reader:pw")}`);
+    expect(calls.filter((c) => c.url.includes("cmdb_ci_appl")).map((c) => new URL(c.url).searchParams.get("sysparm_offset"))).toEqual(["0", "500"]);
+    expect(new URL(calls[0].url).searchParams.get("sysparm_query")).toBe("operational_status=1");
+    expect(calls.every((c) => c.url.startsWith("https://acme.service-now.com/api/now/table/"))).toBe(true);
+    const patch = serviceNowToPatch(data, "ServiceNow (acme)");
+    expect(patch.relationships).toHaveLength(1);
+    expect(patch.elements![0].links[0].href).toMatch(/^https:\/\/acme\.service-now\.com\/nav_to\.do\?uri=/);
+
+    await expect(fetchServiceNow(async () => ({ status: 401, text: "" }), { instance: "acme.service-now.com", token: "t" })).rejects.toThrow(/cmdb_read role/);
+    await expect(fetchServiceNow(fake, { instance: "acme" })).rejects.toThrow(/username and password, or an OAuth token/);
+  });
+});
+
+describe("Google Cloud", () => {
+  it("turns gcloud output into project, network, subnet, VM and managed services", () => {
+    const patch = discoverGcp(dirFiles("gcp"));
+    const ws = apply(patch);
+    valid(ws);
+    const by = (n: string) => Object.values(ws.elements).find((e) => e.name === n)!;
+    expect(by("api-1")).toMatchObject({ parent: by("private-eu").id, properties: { technology: "Compute Engine e2-standard-4", zone: "europe-west1-b" } });
+    expect(by("private-eu").parent).toBe(by("shop-vpc").id);
+    expect(by("shop-vpc").parent).toBe(by("GCP project shop-prod-123").id);
+    expect(by("orders-db")).toMatchObject({ parent: by("shop-vpc").id, properties: { kind: "Database", technology: "Cloud SQL POSTGRES_16" } });
+    expect(by("prod-gke").parent).toBe(by("shop-vpc").id);
+    expect(names(ws)).toEqual(expect.arrayContaining(["checkout", "send-receipt", "order-events", "shop-assets"]));
+    expect(patch.report![0]).toBe("Google Cloud: 9 resource(s) in project shop-prod-123");
+  });
+});
+
+describe("Azure", () => {
+  it("turns az output into subscription, resource groups, VNet/subnet and resources, without duplicates or plumbing", () => {
+    const patch = discoverAzure(dirFiles("azure"));
+    const ws = apply(patch);
+    valid(ws);
+    const by = (n: string) => Object.values(ws.elements).filter((e) => e.name === n);
+    expect(by("jumpbox")).toHaveLength(1); // listed by both `az vm list` and `az resource list`
+    expect(by("jumpbox")[0]).toMatchObject({ type: "c4:DeploymentNode", parent: by("rg-shop")[0].id, properties: { size: "Standard_B2s" } });
+    expect(by("rg-shop")[0].parent).toBe(by("Shop Production")[0].id);
+    expect(by("aks-shop")[0].parent).toBe(by("aks")[0].id);
+    expect(by("aks")[0].parent).toBe(by("vnet-shop")[0].id);
+    expect(by("receipts")[0].properties.technology).toBe("Azure Functions");
+    expect(by("pg-orders")[0].properties.kind).toBe("Database");
+    expect(by("sb-shop")[0].properties.kind).toBe("Queue");
+    expect(by("stshopassets")[0].parent).toBe(by("rg-other")[0].id);
+    expect(names(ws)).not.toContain("jumpbox-nic");
+    expect(patch.report![0]).toBe("Azure: 7 resource(s) in 2 resource group(s)");
+  });
+});

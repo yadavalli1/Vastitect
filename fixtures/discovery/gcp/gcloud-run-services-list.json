@@ -1,0 +1,1 @@
+[{"apiVersion":"serving.knative.dev/v1","kind":"Service","metadata":{"name":"checkout","labels":{"cloud.googleapis.com/location":"europe-west1"},"selfLink":"/apis/serving.knative.dev/v1/namespaces/123/services/checkout"},"status":{"url":"https://checkout-abc-ew.a.run.app"}}]
