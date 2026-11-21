@@ -8,10 +8,12 @@ import { discoverGit } from "./git";
 import { AWS_COMMANDS, discoverAws } from "./aws";
 import { AZ_COMMANDS, discoverAzure } from "./azure";
 import { GCLOUD_COMMANDS, discoverGcp } from "./gcp";
+import { fetchDatadog, observeTraces, tracesToPatch } from "./traces";
 import { fetchServiceNow, parseServiceNowFiles, serviceNowToPatch, SERVICENOW_TABLES } from "./servicenow";
 
 export { discoverApis, discoverCompose, discoverKubernetes, discoverTerraform, discoverBackstage, discoverGit, discoverAws };
 export { AWS_COMMANDS, discoverAzure, discoverGcp, AZ_COMMANDS, GCLOUD_COMMANDS, fetchServiceNow, parseServiceNowFiles, serviceNowToPatch, SERVICENOW_TABLES };
+export { fetchDatadog, observeTraces, tracesToPatch };
 export { MANIFESTS } from "./git";
 
 /**
@@ -19,7 +21,7 @@ export { MANIFESTS } from "./git";
  * they parse specs, manifests and state exports and return a draft patch shown as a diff.
  */
 export default definePlugin({
-  manifest: { id: "vastitecture.discovery", name: "Discovery connectors", version: "0.1.0", apiVersion: "1.0.0", capabilities: ["connector"], permissions: { fs: ["read:pick"], network: ["*.service-now.com", "*.servicenowservices.com"], secrets: ["servicenow-password", "servicenow-token"] } },
+  manifest: { id: "vastitecture.discovery", name: "Discovery connectors", version: "0.1.0", apiVersion: "1.0.0", capabilities: ["connector"], permissions: { fs: ["read:pick"], network: ["*.service-now.com", "*.servicenowservices.com", "api.datadoghq.com", "api.datadoghq.eu", "api.us3.datadoghq.com", "api.us5.datadoghq.com", "api.ap1.datadoghq.com", "api.ddog-gov.com"], secrets: ["servicenow-password", "servicenow-token", "datadog-api-key", "datadog-app-key"] } },
   activate(ctx) {
     const files = { key: "files", label: "Files", type: "files" as const };
     ctx.connectors.register({
@@ -106,6 +108,31 @@ export default definePlugin({
         const password = token ? undefined : await ctx.secrets.get("servicenow-password");
         const data = await fetchServiceNow((url, init) => ctx.net.fetch(url, init), { instance: i.config.instance ?? "", username: i.config.username, password, token, query: i.config.query });
         return serviceNowToPatch(data, `ServiceNow (${new URL(data.instance!).host})`);
+      },
+    });
+    ctx.connectors.register({
+      id: "traces",
+      label: "Runtime traces (OpenTelemetry, Jaeger, Zipkin, Datadog)",
+      description:
+        "Compares what actually calls what in production with the model. Services are matched to existing elements by name; observed calls that are not modelled are proposed as relationships, and modelled dependencies never seen in the traces are listed in the report. Reads OTLP JSON, Jaeger trace or dependency exports, Zipkin v2 JSON, or Datadog's service dependency map (live in the desktop app).",
+      fields: [
+        { ...files, label: "Trace or dependency exports", optional: true },
+        { key: "environment", label: "Environment", type: "string", placeholder: "production" },
+        { key: "site", label: "Datadog site (live)", type: "string", placeholder: "datadoghq.com" },
+        { key: "apiKey", label: "Datadog API key", type: "secret", secret: "datadog-api-key" },
+        { key: "appKey", label: "Datadog application key", type: "secret", secret: "datadog-app-key" },
+      ],
+      async discover(i, ws) {
+        const report: string[] = [];
+        let input = i.files;
+        if (!input.length) {
+          const [apiKey, appKey] = [await ctx.secrets.get("datadog-api-key"), await ctx.secrets.get("datadog-app-key")];
+          if (!apiKey || !appKey) throw new Error("Pick trace exports, or enter Datadog API and application keys to read the live service map.");
+          input = [await fetchDatadog((url, init) => ctx.net.fetch(url, init), { site: i.config.site, env: i.config.environment || "prod", apiKey, appKey })];
+        }
+        const patch = tracesToPatch(observeTraces(input, report), ws, { environment: i.config.environment || undefined });
+        patch.report!.push(...report);
+        return patch;
       },
     });
   },

@@ -283,3 +283,70 @@ describe("Azure", () => {
     expect(patch.report![0]).toBe("Azure: 7 resource(s) in 2 resource group(s)");
   });
 });
+
+import { observeTraces, tracesToPatch } from "./index";
+import { makeElement as mkEl, makeRelationship as mkRel } from "@vastitecture/core";
+
+describe("Runtime traces", () => {
+  const tr = (n: string) => fixture(`traces/${n}`);
+  it("builds runtime dependencies from OpenTelemetry spans, through queues, databases and external hosts", () => {
+    const obs = observeTraces([tr("otlp.json")]);
+    const ws = apply(tracesToPatch(obs));
+    valid(ws);
+    expect(rels(ws)).toEqual([
+      "shipping -> order-events (Consumes from)",
+      "orders-service -> api.stripe.example (Calls)",
+      "orders-service -> order-events (Publishes to)",
+      "orders-service -> orders (Reads from and writes to)",
+      "orders-service -> payments (Calls)",
+      "web-frontend -> orders-service (Calls)",
+    ].sort());
+    const by = (n: string) => Object.values(ws.elements).find((e) => e.name === n)!;
+    expect(by("orders")).toMatchObject({ type: "c4:Container", properties: { kind: "Database", technology: "postgresql" } });
+    expect(by("order-events").properties.kind).toBe("Queue");
+    expect(by("api.stripe.example")).toMatchObject({ type: "c4:SoftwareSystem", properties: { external: true } });
+    expect(by("orders-service").properties.technology).toBe("java");
+    const pay = Object.values(ws.relationships).find((r) => ws.elements[r.target].name === "payments")!;
+    expect(pay.properties).toMatchObject({ observedCalls: 1, observedErrors: 1 });
+  });
+
+  it("reads Jaeger, Zipkin and Datadog formats", () => {
+    const names = (files: string[]) => [...observeTraces(files.map(tr)).edges.values()].map((e) => `${e.from} -> ${e.to}`).sort();
+    expect(names(["jaeger.json"])).toEqual(["catalog -> service:inventory"]);
+    expect(observeTraces([tr("jaeger.json")]).edges.get("catalog|service:inventory")!.errors).toBe(1);
+    expect(names(["zipkin.json"])).toEqual(["cart -> db:redis:redis"]);
+    expect(names(["datadog-service-dependencies.json"])).toEqual(["orders-service -> service:payments", "web-frontend -> service:catalog", "web-frontend -> service:orders-service"]);
+    expect(names(["jaeger-dependencies.json"])).toEqual(["catalog -> service:inventory", "web-frontend -> service:catalog"]);
+  });
+
+  it("matches services to the existing model and reports drift both ways", () => {
+    const base = emptyWorkspace();
+    const web = mkEl("c4:Container", "Web Frontend"), orders = mkEl("c4:Container", "Orders"), catalog = mkEl("c4:Container", "Catalog Service");
+    for (const e of [web, orders, catalog]) base.elements[e.id] = e;
+    for (const r of [mkRel("c4:Uses", web.id, orders.id, { label: "Places orders" }), mkRel("c4:Uses", orders.id, catalog.id, { label: "Looks up prices" })]) base.relationships[r.id] = r;
+    const patch = tracesToPatch(observeTraces([tr("datadog-service-dependencies.json")]), base, { environment: "prod" });
+    expect(patch.report).toEqual([
+      "Traces (Datadog service dependencies): 4 service(s), 3 observed dependency(ies); 3 matched to existing elements",
+      "Already modelled and confirmed by traces: 1",
+      "Observed but not modelled (2, proposed below): Web Frontend → Catalog Service; Orders → payments",
+      "Modelled but never observed (1, review by hand): Orders → Catalog Service",
+    ]);
+    // Existing elements are referenced, not duplicated or modified
+    expect(patch.elements!.map((e) => e.name)).toEqual(["payments"]);
+    const ws = apply(reconcilePatch(base, patch), base);
+    expect(Object.keys(ws.elements)).toHaveLength(4);
+    expect(Object.values(ws.views)[0].name).toBe("Runtime dependencies – prod");
+    expect(Object.values(ws.views)[0].nodes).toHaveLength(4);
+    expect(Object.values(ws.views)[0].edges).toHaveLength(3);
+  });
+});
+
+describe("Runtime traces matching", () => {
+  it("never matches a traced service to a capability or other non-running element", () => {
+    const base = emptyWorkspace();
+    const cap = mkEl("archimate:Capability", "Payments");
+    base.elements[cap.id] = cap;
+    const patch = tracesToPatch(observeTraces([fixture("traces/datadog-service-dependencies.json")]), base);
+    expect(patch.elements!.map((e) => e.name).sort()).toEqual(["catalog", "orders-service", "payments", "web-frontend"]);
+  });
+});

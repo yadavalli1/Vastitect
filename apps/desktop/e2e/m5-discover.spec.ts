@@ -72,3 +72,15 @@ test("ServiceNow CMDB, Google Cloud and Azure run from exported files", async ({
   const names = Object.values((await state(page)).elements).map((e: any) => e.name);
   expect(names).toEqual(expect.arrayContaining(["Online Shop", "lnx-db-01", "api-1", "aks-shop", "pg-orders"]));
 });
+
+test("runtime traces are compared with the sample model", async ({ page }) => {
+  await page.goto("/");
+  await newWorkspace(page, "m5-traces", "sample");
+  await discover(page, "Runtime traces (OpenTelemetry, Jaeger, Zipkin, Datadog)", ["traces/datadog-service-dependencies.json"]);
+  const review = page.getByTestId("review");
+  await expect(review).toContainText("Traces (Datadog service dependencies): 4 service(s)");
+  await expect(review).toContainText("Observed but not modelled");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await openView(page, "Runtime dependencies – observed");
+  await expect(node(page, "payments")).toBeVisible();
+});

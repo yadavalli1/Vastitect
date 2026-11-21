@@ -107,3 +107,11 @@ other notation-aware defaults in `core/defaults.ts`.
 `@vastitecture/cli` bundles the core, notations and exporters with esbuild into
 `packages/cli/dist/vastitecture.mjs`, which runs on plain Node 20+. Discovery connectors are left out so
 the CLI never reaches the network.
+
+## D-27 Traces are compared with the model, not imported over it
+The trace connector matches observed services to existing runnable elements (containers, components,
+systems, application components, nodes) by normalised name or a `service` property. It proposes only
+relationships that are missing, never edits or deletes existing ones, and lists modelled dependencies
+that were not observed in its report for a person to judge: a quiet week of traces is not proof that a
+dependency is gone. Datadog is read live (API and application keys in the keychain); Jaeger, Zipkin and
+OpenTelemetry are read from exported JSON because their query endpoints are self-hosted.

@@ -125,7 +125,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 - [x] Architecture rules as data in `vastitecture.yaml`; rules page; violations in the Problems panel
 - [x] `@vastitecture/cli`: check (text, JSON, GitHub annotations, Markdown), diff, export, rules init; example workflow
-- [ ] Runtime-trace discovery (OpenTelemetry, Jaeger, Zipkin, Datadog)
+- [x] Runtime-trace discovery (OpenTelemetry, Jaeger, Zipkin, Datadog) with drift report
 - [ ] Assistant chat beside the canvas; ask-the-model; draft an ADR
 - [ ] Connectors: GitHub organisation scan, live Kubernetes, Jira / Azure DevOps, LeanIX / Ardoq / Sparx EA
 - [ ] ServiceNow write-back

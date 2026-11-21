@@ -1,0 +1,5 @@
+{"data":[{"traceID":"j1","spans":[
+  {"traceID":"j1","spanID":"s1","operationName":"GET /products","references":[],"processID":"p1","tags":[{"key":"span.kind","type":"string","value":"server"}]},
+  {"traceID":"j1","spanID":"s2","operationName":"GET","references":[{"refType":"CHILD_OF","traceID":"j1","spanID":"s1"}],"processID":"p1","tags":[{"key":"span.kind","value":"client"}]},
+  {"traceID":"j1","spanID":"s3","operationName":"GET /stock","references":[{"refType":"CHILD_OF","traceID":"j1","spanID":"s2"}],"processID":"p2","tags":[{"key":"span.kind","value":"server"},{"key":"http.status_code","type":"int64","value":503}]}
+ ],"processes":{"p1":{"serviceName":"catalog","tags":[]},"p2":{"serviceName":"inventory","tags":[]}}}]}
