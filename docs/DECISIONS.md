@@ -115,3 +115,19 @@ relationships that are missing, never edits or deletes existing ones, and lists 
 that were not observed in its report for a person to judge: a quiet week of traces is not proof that a
 dependency is gone. Datadog is read live (API and application keys in the keychain); Jaeger, Zipkin and
 OpenTelemetry are read from exported JSON because their query endpoints are self-hosted.
+
+## D-28 Work items annotate elements; they do not become elements
+Jira issues and Azure DevOps work items are linked to the elements they change (by label, tag,
+component or area path matching an element's name, or its `workItemKey` property). Matched elements
+get links and a delivery-status property; no elements are created, so the model stays about
+architecture, not backlog.
+
+## D-29 Other EA tools are imported into ArchiMate
+LeanIX, Ardoq and Sparx EA content is mapped to ArchiMate 4 types with a stable `externalId`, so a
+second import updates the first. Ardoq types are user-defined and therefore mapped by keyword; anything
+unrecognised is listed in the report rather than guessed. Sparx models that are already ArchiMate should
+use the Open Exchange importer instead of XMI.
+
+## D-30 kubectl is limited to `get`
+The desktop shell runs `kubectl get <resources> -o json` only, with `--context`/`--namespace` as the only
+flags, and refuses any resource list that includes secrets.

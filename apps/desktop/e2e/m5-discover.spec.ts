@@ -84,3 +84,18 @@ test("runtime traces are compared with the sample model", async ({ page }) => {
   await openView(page, "Runtime dependencies – observed");
   await expect(node(page, "payments")).toBeVisible();
 });
+
+test("enterprise tools and work items import through Discover", async ({ page }) => {
+  await page.goto("/");
+  await newWorkspace(page, "m5-ent", "sample");
+  for (const [connector, files, text] of [
+    ["Sparx Enterprise Architect (XMI)", ["enterprise/sparx.xmi"], "Sparx EA: 6 element(s) in 1 package(s)"],
+    ["LeanIX (import)", ["enterprise/leanix-graphql.json"], "LeanIX: 5 fact sheet(s)"],
+    ["Jira work items", ["workitems/jira-export.csv"], "Jira: 4 work item(s)"],
+  ] as const) {
+    await discover(page, connector, [...files]);
+    await expect(page.getByTestId("review")).toContainText(text);
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByTestId("review")).toBeHidden();
+  }
+});

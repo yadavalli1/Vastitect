@@ -36,8 +36,8 @@ async function pickFolderFiles(namesToo: boolean): Promise<ImportInput[]> {
   return out;
 }
 
-const CLI_NAME = { aws: "AWS CLI", gcloud: "gcloud", az: "Azure CLI" } as const;
-const CLI_JSON = { aws: "--output json", gcloud: "--format=json", az: "-o json" } as const;
+const CLI_NAME = { aws: "AWS CLI", gcloud: "gcloud", az: "Azure CLI", kubectl: "kubectl" } as const;
+const CLI_JSON = { aws: "--output json", gcloud: "--format=json", az: "-o json", kubectl: "--all-namespaces -o json" } as const;
 
 /** Desktop: run a connector's read-only cloud CLI commands with the user's own login. */
 async function readFromCli(cli: ConnectorCli, config: Record<string, string>): Promise<{ files: ImportInput[]; errors: string[] }> {
@@ -144,7 +144,7 @@ export function DiscoverPage() {
             <div key={f.key}>
               <div className="label">{f.label}</div>
               <div className="flex gap-2 items-center">
-                <button className="btn" onClick={async () => setFiles([...files, ...(await pickFiles(".yaml,.yml,.json,.tfstate,.csv", true))])}>{t("Add files…")}</button>
+                <button className="btn" onClick={async () => setFiles([...files, ...(await pickFiles(c.id === "github" ? "" : ".yaml,.yml,.json,.tfstate,.csv,.xmi,.xml", true))])}>{t("Add files…")}</button>
                 {"showDirectoryPicker" in window && <button className="btn" onClick={async () => setFiles([...files, ...(await pickFolderFiles(c.id === "git"))])}>{t("Add a folder…")}</button>}
                 {!!files.length && <button className="btn ghost" onClick={() => setFiles([])}>{t("Clear")}</button>}
               </div>

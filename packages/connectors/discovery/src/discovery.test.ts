@@ -350,3 +350,110 @@ describe("Runtime traces matching", () => {
     expect(patch.elements!.map((e) => e.name).sort()).toEqual(["catalog", "orders-service", "payments", "web-frontend"]);
   });
 });
+
+import { ardoqToPatch, codeOwners, leanixToPatch, linkWorkItems, parseGithubFiles, parseWorkItemFiles, reposToPatch, sparxToPatch, fetchGithub } from "./index";
+
+describe("GitHub organisation", () => {
+  it("turns repositories into containers grouped by system topic, owned through CODEOWNERS", () => {
+    const files = ["gh-repo-list.json", "orders-api.CODEOWNERS", "storefront.CODEOWNERS"].map((n) => fixture(`github/${n}`));
+    const patch = reposToPatch(parseGithubFiles(files));
+    const ws = apply(patch);
+    valid(ws);
+    const by = (n: string) => Object.values(ws.elements).find((e) => e.name === n)!;
+    expect(by("orders-api")).toMatchObject({ parent: by("Shop").id, owner: "acme/orders-team, jdoe", tags: ["pci"], properties: { technology: "Java" }, links: [{ kind: "repo", href: "https://github.com/acme/orders-api" }] });
+    expect(by("storefront").owner).toBe("acme/web-team"); // no * rule: the first rule's owners
+    expect(by("legacy-billing")).toMatchObject({ lifecycle: { phase: "endOfLife" } });
+    expect(by("legacy-billing").parent).toBeUndefined();
+    expect(patch.report).toEqual(["GitHub: 3 repository(ies), 1 archived", "1 repository(ies) have no system-<name> topic and are not grouped under a system", "1 repository(ies) have no CODEOWNERS file, so no owner was set"]);
+    expect(codeOwners("# c\n/a/ @x\n* @y @z # all\n")).toEqual(["y", "z"]);
+  });
+
+  it("reads an organisation live, page by page, with each CODEOWNERS file", async () => {
+    const urls: string[] = [];
+    const fake = async (url: string) => {
+      urls.push(url);
+      if (url.includes("/orgs/acme/repos")) return { status: 200, text: JSON.stringify([{ name: "a", full_name: "acme/a", language: "Go", topics: ["system-x"], html_url: "https://github.com/acme/a", archived: false }]) };
+      if (url.endsWith("/acme/a/contents/.github/CODEOWNERS")) return { status: 404, text: "{}" };
+      if (url.endsWith("/acme/a/contents/CODEOWNERS")) return { status: 200, text: JSON.stringify({ encoding: "base64", content: btoa("* @acme/x-team\n") }) };
+      return { status: 404, text: "{}" };
+    };
+    const repos = await fetchGithub(fake, { org: "https://github.com/acme" });
+    expect(repos[0]).toMatchObject({ fullName: "acme/a", topics: ["system-x"], codeowners: "* @acme/x-team\n" });
+    expect(urls.filter((u) => u.includes("docs/CODEOWNERS"))).toEqual([]);
+    await expect(fetchGithub(fake, { org: "bad name!" })).rejects.toThrow(/organisation or user/);
+  });
+});
+
+describe("Work items", () => {
+  const ws = () => {
+    const base = emptyWorkspace();
+    for (const e of [mkEl("c4:Container", "Order API"), mkEl("c4:Container", "Orders DB"), mkEl("c4:Container", "Search", { properties: { workItemKey: "legacy-search" } })]) base.elements[e.id] = e;
+    return base;
+  };
+  it("links Jira CSV and JSON issues and Azure DevOps items to the elements they name", () => {
+    const base = ws();
+    const items = parseWorkItemFiles(["jira-export.csv", "jira-search.json", "azure-devops.json"].map((n) => fixture(`workitems/${n}`)));
+    expect(items.map((w) => `${w.key}:${w.category}`)).toEqual(["SHOP-101:doing", "SHOP-102:todo", "SHOP-103:done", "MKT-9:todo", "SHOP-200:todo", "51:doing", "52:done"]);
+    const patch = linkWorkItems(base, items, "Jira");
+    expect(patch.report![0]).toBe("Jira: 7 work item(s), 5 linked to 3 element(s)");
+    expect(patch.report![1]).toContain("marketing (1)");
+    const after = apply(reconcilePatch(base, patch), base);
+    const by = (n: string) => Object.values(after.elements).find((e) => e.name === n)!;
+    expect(by("Order API").properties).toMatchObject({ workItems: "2 to do, 1 in progress, 0 done (Jira)", nextDue: "2026-12-01" });
+    expect(by("Order API").links.map((l) => l.label)).toEqual(["SHOP-200: Cache order lookups"]); // CSV rows carry no URL
+    expect(by("Orders DB").links[0].href).toBe("https://dev.azure.com/acme/Shop/_workitems/edit/51");
+    expect(by("Orders DB").properties.nextDue).toBe("2027-03-31");
+    expect(by("Search").properties.workItems).toBe("0 to do, 0 in progress, 1 done (Jira)");
+    expect(Object.keys(after.elements)).toHaveLength(3);
+    // Running it again changes nothing
+    expect(linkWorkItems(after, items, "Jira").elements).toEqual([]);
+  });
+});
+
+describe("Enterprise architecture tools", () => {
+  const ent = (n: string) => fixture(`enterprise/${n}`);
+  const typed = (ws: Workspace) => Object.values(ws.elements).map((e) => `${e.name} [${e.type.slice(10)}]`).sort();
+  it("imports LeanIX fact sheets and relations from GraphQL and CSV", () => {
+    const patch = leanixToPatch([ent("leanix-graphql.json"), ent("leanix-export.csv")]);
+    const ws = apply(patch);
+    valid(ws);
+    expect(typed(ws)).toEqual(["Customers [Role]", "Legacy Billing [ApplicationComponent]", "Online Shop [ApplicationComponent]", "Order Capture [Capability]", "Order Management [Capability]", "PostgreSQL 16 [SystemSoftware]", "Stripe [BusinessActor]"]);
+    expect(rels(ws)).toEqual(["Online Shop -> Order Management", "PostgreSQL 16 -> Online Shop"]);
+    const by = (n: string) => Object.values(ws.elements).find((e) => e.name === n)!;
+    expect(by("Order Capture").parent).toBe(by("Order Management").id);
+    expect(by("Legacy Billing").lifecycle?.phase).toBe("endOfLife");
+    expect(by("Online Shop").properties.criticality).toBe("missionCritical");
+    expect(patch.report).toContain("Fact sheet types not imported: CustomThing (1)");
+  });
+
+  it("imports Ardoq components and references, mapping types by name", () => {
+    const patch = ardoqToPatch([ent("ardoq-components.json"), ent("ardoq-references.json")]);
+    const ws = apply(patch);
+    expect(typed(ws)).toEqual(["Cart [ApplicationComponent]", "Checkout Service [ApplicationComponent]", "Payments [Capability]", "k8s-prod [Node]"]);
+    expect(rels(ws)).toEqual(["Checkout Service -> Payments (Supports)", "k8s-prod -> Checkout Service (Depends on)"]);
+    expect(patch.report).toContain("Component types not recognised (rename them or map by hand): Widget (1)");
+  });
+
+  it("imports UML from a Sparx EA XMI export", () => {
+    const patch = sparxToPatch([ent("sparx.xmi")]);
+    const ws = apply(patch);
+    valid(ws);
+    expect(typed(ws)).toEqual(["App Server [Node]", "Order API [ApplicationComponent]", "Order DB [ApplicationComponent]", "Order [DataObject]", "Orders REST [ApplicationInterface]", "Shop [Grouping]", "Special Order [DataObject]"]);
+    expect(rels(ws)).toEqual(["App Server -> Order API", "Order API -> Orders REST", "Order DB -> Order API (reads and writes)", "Special Order -> Order"]);
+    const by = (n: string) => Object.values(ws.elements).find((e) => e.name === n)!;
+    expect(by("Order API")).toMatchObject({ description: "Takes orders", parent: by("Shop").id });
+    expect(patch.report![0]).toBe("Sparx EA: 6 element(s) in 1 package(s), 4 relationship(s)");
+    expect(patch.report).toContain("UML element types not imported: UseCase (1)");
+  });
+});
+
+describe("kubectl output", () => {
+  it("reads the List that `kubectl get … -o json` returns", async () => {
+    const { parseAllDocuments } = await import("yaml");
+    const items = parseAllDocuments(fixture("k8s.yaml").text).map((d) => d.toJS()).filter(Boolean);
+    const fromKubectl = discoverKubernetes([{ name: "kubectl-get.json", text: JSON.stringify({ apiVersion: "v1", kind: "List", items }) }], { cluster: "prod" });
+    const fromFiles = discoverKubernetes([fixture("k8s.yaml")], { cluster: "prod" });
+    expect(fromKubectl.report![0]).toBe(fromFiles.report![0]);
+    expect(fromKubectl.elements!.map((e) => e.name).sort()).toEqual(fromFiles.elements!.map((e) => e.name).sort());
+  });
+});

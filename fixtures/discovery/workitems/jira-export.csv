@@ -1,0 +1,5 @@
+Summary,Issue key,Issue Type,Status,Labels,Labels,Component/s,Due date
+Add PayPal to checkout,SHOP-101,Story,In Progress,checkout,payments,Order API,2027-01-15
+Fix order history paging,SHOP-102,Bug,To Do,order-api,,,
+Retire old search,SHOP-103,Epic,Done,legacy-search,,,
+Unrelated marketing page,MKT-9,Task,To Do,marketing,,,

@@ -1,0 +1,5 @@
+[
+ {"name":"orders-api","nameWithOwner":"acme/orders-api","description":"Order placement API","primaryLanguage":{"name":"Java"},"repositoryTopics":[{"name":"system-shop"},{"name":"pci"}],"url":"https://github.com/acme/orders-api","isArchived":false},
+ {"name":"storefront","nameWithOwner":"acme/storefront","description":"Web shop","primaryLanguage":{"name":"TypeScript"},"repositoryTopics":[{"name":"system-shop"}],"url":"https://github.com/acme/storefront","isArchived":false},
+ {"name":"legacy-billing","nameWithOwner":"acme/legacy-billing","description":null,"primaryLanguage":{"name":"COBOL"},"repositoryTopics":[],"url":"https://github.com/acme/legacy-billing","isArchived":true}
+]

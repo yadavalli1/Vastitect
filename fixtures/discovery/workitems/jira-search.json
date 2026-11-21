@@ -1,0 +1,1 @@
+{"issues":[{"key":"SHOP-200","self":"https://acme.atlassian.net/rest/api/3/issue/1","fields":{"summary":"Cache order lookups","status":{"name":"Selected for Development","statusCategory":{"key":"new"}},"issuetype":{"name":"Story"},"labels":["order-api"],"components":[],"duedate":"2026-12-01"}}]}

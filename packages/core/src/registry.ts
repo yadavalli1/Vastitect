@@ -200,7 +200,7 @@ export interface ConnectorField {
  * The native shell only accepts list/describe/show verbs, whatever a plugin asks for.
  */
 export interface ConnectorCli {
-  tool: "aws" | "gcloud" | "az";
+  tool: "aws" | "gcloud" | "az" | "kubectl";
   /** Each entry is the argument list of one command, e.g. ["compute", "instances", "list"]. */
   commands: string[][];
   /** Config fields passed as flags, e.g. { profile: "--profile" }. */

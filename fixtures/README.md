@@ -25,3 +25,8 @@ CSV export), `gcloud … --format=json` and `az … -o json` output, with invent
 
 `discovery/traces/` was written for this project in the OTLP JSON, Jaeger, Zipkin v2 and Datadog service
 dependency formats, with invented service names.
+
+`discovery/github/`, `discovery/workitems/` and `discovery/enterprise/` were written for this project from the
+public documentation of `gh repo list --json`, the GitHub REST API, Jira and Azure DevOps exports and APIs,
+LeanIX GraphQL, Ardoq's REST API and UML 2 XMI. They have not been compared with real exports from those
+products yet.

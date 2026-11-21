@@ -415,6 +415,15 @@ pub fn reveal_folder(path: &Path) -> Result<()> {
 /// connector can make the user's cloud login change anything.
 pub fn cloud_read_only(tool: &str, args: &[String]) -> Result<()> {
     let word = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    // kubectl takes a comma-separated resource list: `get deployments,services`.
+    let resources = |s: &str| !s.is_empty() && s.len() <= 200 && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == ',' || c == '.');
+    if tool == "kubectl" {
+        return if args.len() == 2 && args[0] == "get" && resources(&args[1]) && !args[1].split(',').any(|r| r.starts_with("secret")) {
+            Ok(())
+        } else {
+            Err(format!("Refusing kubectl {}: only `kubectl get <resources>` (never secrets) is allowed", args.join(" ")))
+        };
+    }
     if args.is_empty() || args.len() > 6 || !args.iter().all(|a| word(a)) {
         return Err(format!("Refusing {tool} command: arguments must be plain lowercase words"));
     }
@@ -436,14 +445,21 @@ pub fn cloud_cli(tool: &str, args: &[String], flags: &[(String, String)]) -> Res
         "aws" => &["--profile", "--region"],
         "gcloud" => &["--project"],
         "az" => &["--subscription"],
+        "kubectl" => &["--context", "--namespace"],
         _ => &[],
     };
     let safe = |s: &str| !s.is_empty() && s.len() <= 128 && s.chars().all(|c| c.is_ascii_alphanumeric() || " -_.".contains(c));
-    let mut cmd = Command::new(if cfg!(windows) && tool != "aws" { format!("{tool}.cmd") } else { tool.to_string() });
+    let mut cmd = Command::new(if cfg!(windows) && (tool == "gcloud" || tool == "az") { format!("{tool}.cmd") } else { tool.to_string() });
     cmd.args(args);
     match tool {
         "aws" => cmd.args(["--output", "json", "--no-cli-pager"]),
         "gcloud" => cmd.args(["--format=json", "--quiet"]),
+        "kubectl" => {
+            if !flags.iter().any(|(n, v)| n == "--namespace" && !v.is_empty()) {
+                cmd.arg("--all-namespaces");
+            }
+            cmd.args(["-o", "json", "--request-timeout=20s"])
+        }
         _ => cmd.args(["-o", "json", "--only-show-errors"]),
     };
     for (name, value) in flags {
@@ -470,6 +486,16 @@ mod cloud_tests {
     }
 
     #[test]
+    fn kubectl_may_only_get_non_secret_resources() {
+        assert!(cloud_read_only("kubectl", &a(&["get", "deployments,statefulsets,services,ingresses.networking.k8s.io"])).is_ok());
+        assert!(cloud_read_only("kubectl", &a(&["get", "secrets"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["get", "pods,secret"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["delete", "pods"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["get", "pods", "--kubeconfig=/x"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["get", "pods;rm"])).is_err());
+    }
+
+    #[test]
     fn only_read_only_cloud_commands_are_allowed() {
         assert!(cloud_read_only("gcloud", &a(&["compute", "instances", "list"])).is_ok());
         assert!(cloud_read_only("gcloud", &a(&["config", "get-value", "project"])).is_ok());
@@ -481,7 +507,7 @@ mod cloud_tests {
         assert!(cloud_read_only("az", &a(&["vm", "delete"])).is_err());
         assert!(cloud_read_only("az", &a(&["group", "list;rm"])).is_err());
         assert!(cloud_read_only("az", &a(&["vm", "list", "--query"])).is_err());
-        assert!(cloud_read_only("kubectl", &a(&["get", "pods"])).is_err());
+        assert!(cloud_read_only("terraform", &a(&["show"])).is_err());
         assert!(cloud_cli("az", &a(&["vm", "list"]), &[("--resource-group".into(), "x".into())]).is_err());
         assert!(cloud_cli("gcloud", &a(&["compute", "instances", "list"]), &[("--project".into(), "a;b".into())]).is_err());
     }

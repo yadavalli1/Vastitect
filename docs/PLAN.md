@@ -127,7 +127,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] `@vastitecture/cli`: check (text, JSON, GitHub annotations, Markdown), diff, export, rules init; example workflow
 - [x] Runtime-trace discovery (OpenTelemetry, Jaeger, Zipkin, Datadog) with drift report
 - [x] Assistant chat beside the canvas; ask-the-model; draft an ADR (all changes through the review dialog)
-- [ ] Connectors: GitHub organisation scan, live Kubernetes, Jira / Azure DevOps, LeanIX / Ardoq / Sparx EA
+- [x] Connectors: GitHub organisation scan, live Kubernetes (`kubectl get`), Jira / Azure DevOps, LeanIX / Ardoq / Sparx EA
+- [ ] TODO: check the LeanIX, Ardoq and Sparx mappings against real exports (built from public documentation and hand-written fixtures)
 - [ ] ServiceNow write-back
 - [ ] Plateaus (as-is / to-be), cost overlay, data classification and flow, coupling metrics
 - [ ] Visual model diff, comments stored in the repository
