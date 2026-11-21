@@ -1,6 +1,6 @@
 {
   "name": "@vastitecture/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "license": "MIT",
   "description": "Check, diff and export Vastitecture workspaces from the command line or CI.",

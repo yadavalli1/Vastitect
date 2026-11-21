@@ -118,9 +118,9 @@ jobs:
         with:
           projectPath: apps/desktop
           # Empty on pull requests: build only, no tag or release.
-          tagName: ${{ github.event_name == 'pull_request' && '' || (github.ref_type == 'tag' && github.ref_name || format('v{0}-dev.{1}', '0.1.0', github.run_number)) }}
+          tagName: ${{ github.event_name == 'pull_request' && '' || (github.ref_type == 'tag' && github.ref_name || format('v{0}-dev.{1}', '0.2.0', github.run_number)) }}
           releaseName: "Vastitecture ${{ github.ref_type == 'tag' && github.ref_name || 'development build' }}"
-          releaseBody: "See the assets below for macOS, Windows and Linux installers."
+          releaseBody: "What is new: see CHANGELOG.md in the repository. Installers for macOS, Windows and Linux are attached below. They are unsigned: on macOS use System Settings, Privacy & Security, Open Anyway; on Windows choose More info, Run anyway."
           releaseDraft: true
           prerelease: ${{ github.ref_type != 'tag' }}
           includeUpdaterJson: ${{ env.UPDATER_CONFIG != '{}' }}
