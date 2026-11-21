@@ -77,7 +77,7 @@ export function RoadmapPage() {
                     {phaseLabel(s.phase)}
                   </span>
                 ))}
-                <span aria-label={t("Today")} style={{ position: "absolute", left: `${pct(now)}%`, top: -2, bottom: -2, borderLeft: "2px solid var(--danger)" }} />
+                <span role="img" aria-label={t("Today")} style={{ position: "absolute", left: `${pct(now)}%`, top: -2, bottom: -2, borderLeft: "2px solid var(--danger)" }} />
               </div>
             </div>
           ))}

@@ -54,7 +54,7 @@ panel only; richer interactive plugin UI is a later step.
 ## D-16 Renderer-dependent exporters run in the app
 PDF, the static HTML site and Markdown docs need the SVG renderer and every installed notation's
 shapes, so they register (through the same plugin API) in the app rather than in the worker.
-PDF pages are high-resolution JPEGs of each view, not vector graphics.
+PDF pages were high-resolution JPEGs of each view; see D-36 for the vector PDF that replaced them as the default.
 
 ## D-17 The `ulid` package was replaced
 It refuses to run in workers. `newId()` now generates ULIDs with `crypto.getRandomValues`.
@@ -158,3 +158,15 @@ time. Deleting an element deletes its comments; deleting a comment deletes its r
 The desktop shell returns the workspace's files at a revision (`git ls-tree` and `git show`), refusing
 revision names that look like options or ranges. The comparison itself is `diffWorkspaces` in core, the
 same function the CLI's `diff` command uses.
+
+## D-36 Vector PDF without a PDF library
+The renderer writes a small, known subset of SVG, so `io-formats/vectorpdf.ts` converts that subset to
+PDF operators directly (arcs to Béziers, opacity through ExtGState) and uses the standard Helvetica fonts
+without embedding. Text is selectable and searchable; characters outside Windows-1252 print as "?".
+Image-based PDFs remain available as "PDF as an image". Because the converter needs no browser, the CLI
+exports PDF and SVG too.
+
+## D-37 Accessibility is checked by axe in CI
+`e2e/a11y.spec.ts` runs axe-core (WCAG 2.0/2.1 A and AA rules) over nine screens in both themes. The
+test bypasses the app's Content Security Policy only to inject the checker. A manual screen-reader pass is
+still needed: automated checks find roughly a third of real-world problems.

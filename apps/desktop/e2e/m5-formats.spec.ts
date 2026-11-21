@@ -22,7 +22,8 @@ test("paste a Mermaid C4 block to create a view, then export it as Mermaid, Plan
   expect(drawio.text).toContain("<mxfile");
   const pdf = await exportAs(page, "PDF (this view)");
   expect(pdf.bytes.subarray(0, 5).toString()).toBe("%PDF-");
-  expect(pdf.bytes.length).toBeGreaterThan(5000);
+  expect(pdf.bytes.length).toBeGreaterThan(1500);
+  expect(pdf.bytes.toString("latin1")).toMatch(/BaseFont \/Helvetica/); // vector: real text, not an image
 });
 
 test("bulk-edit the inventory through CSV", async ({ page }) => {

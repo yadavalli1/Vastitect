@@ -7,7 +7,7 @@
   --panel-2: #f8fafc;
   --border: #cbd5e1;
   --text: #0f172a;
-  --muted: #5b6b82;
+  --muted: #4f5e74; /* 4.5:1 or better on every light background, including a selected row */
   --accent: #1d4ed8;
   --accent-text: #ffffff;
   --node-fill: #f8fafc;

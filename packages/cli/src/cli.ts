@@ -24,14 +24,34 @@ import inventory from "@vastitecture/notation-inventory";
 import structurizr from "@vastitecture/io-structurizr";
 import archimateIo from "@vastitecture/io-archimate";
 import cml from "@vastitecture/io-cml";
-import formats from "@vastitecture/io-formats";
+import formats, { svgToPdfPage, writeVectorPdf } from "@vastitecture/io-formats";
+import { viewToSvg } from "@vastitecture/render";
+import { definePlugin } from "@vastitecture/plugin-sdk";
 
 /** The same built-in notations and formats as the app, activated in-process. Connectors are left out: the CLI never reaches the network. */
+/** Rendered outputs (the app has these too, plus image-based variants that need a browser). */
+const rendered = (reg: Registry) =>
+  definePlugin({
+    manifest: { id: "vastitecture.cli-render", name: "SVG and PDF", version: "0.1.0", apiVersion: "1.0.0", capabilities: ["exporter"] },
+    activate(ctx) {
+      const svg = (ws: Workspace, id: string) => viewToSvg(ws, ws.views[id], reg);
+      ctx.exporters.register({ id: "svg-view", label: "SVG (this view)", extension: "svg", scope: "view", export: (ws, o) => svg(ws, o.view!) });
+      ctx.exporters.register({ id: "pdf-view", label: "PDF (this view)", extension: "pdf", scope: "view", export: (ws, o) => writeVectorPdf([svgToPdfPage(svg(ws, o.view!))], { title: ws.views[o.view!].name }) });
+      ctx.exporters.register({
+        id: "pdf",
+        label: "PDF (all views)",
+        extension: "pdf",
+        scope: "workspace",
+        export: (ws) => writeVectorPdf(Object.values(ws.views).sort((a, b) => a.notation.localeCompare(b.notation) || a.name.localeCompare(b.name)).map((v) => svgToPdfPage(svg(ws, v.id))), { title: ws.name }),
+      });
+    },
+  });
 const PLUGINS: Plugin[] = [archimate, c4, ddd, togaf, generic, inventory, structurizr, archimateIo, cml, formats];
 
 export async function createRegistry(): Promise<Registry> {
   const reg = new Registry();
   for (const p of PLUGINS) await activate(p, reg, { log: () => {} });
+  await activate(rendered(reg), reg);
   return reg;
 }
 

@@ -116,7 +116,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [ ] TODO (owner): signing certificates and the updater key as repository secrets; the updater public key in tauri.conf.json
 - [ ] TODO: the release workflow has not run on GitHub's macOS and Windows runners yet; only the Linux .deb was built locally
 - [x] Accessibility: keyboard navigation between connected elements, labels on every node and control, no colour-only meaning
-- [ ] TODO: a screen-reader pass with NVDA/VoiceOver, and colour contrast checks in the dark theme
+- [ ] TODO: a manual screen-reader pass with NVDA and VoiceOver (automated WCAG checks now pass in both themes)
 - [x] Performance budget verified in tests (open 5,000 elements/200 views, 300-node layout, 300-node pan)
 - [x] CONTRIBUTING.md, code of conduct, README, published JSON Schema, message extraction
 
@@ -131,7 +131,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] ServiceNow write-back: names, descriptions and new dependencies, compared live, picked and confirmed
 - [x] Plateaus (as-is / to-be), cost overlay (cloud billing exports), data classification and flow, coupling metrics
 - [x] Visual model diff (Git commit or another folder), comments stored in the repository
-- [ ] Vector PDF; automated colour-contrast checks
+- [x] Vector PDF (selectable text; image PDF kept as an option); SVG and PDF export in the CLI
+- [x] Automated WCAG 2.1 AA checks (axe) on the main screens in light and dark themes, in CI
 
 ## Inputs needed from the owner
 

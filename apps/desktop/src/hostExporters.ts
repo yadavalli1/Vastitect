@@ -1,7 +1,7 @@
 import { presentationType, type ExportResult, type View, type Workspace } from "@vastitecture/core";
 import { activate, definePlugin } from "@vastitecture/plugin-sdk";
 import { LIGHT, markdownToHtml, viewToSvg } from "@vastitecture/render";
-import { writePdf } from "@vastitecture/io-formats";
+import { svgToPdfPage, writePdf, writeVectorPdf } from "@vastitecture/io-formats";
 import { hostServices, registry } from "./plugins";
 
 /**
@@ -104,9 +104,24 @@ function markdownDocs(ws: Workspace): Record<string, string> {
 export const hostExporters = definePlugin({
   manifest: { id: "vastitecture.host-exporters", name: "PDF and documentation site", version: "0.1.0", apiVersion: "1.0.0", capabilities: ["exporter"] },
   activate(ctx) {
+    // Vector PDF: selectable text and sharp lines. The image variants remain for viewers that need them.
     ctx.exporters.register({
       id: "pdf-view",
       label: "PDF (this view)",
+      extension: "pdf",
+      scope: "view",
+      export: (ws, o): ExportResult => writeVectorPdf([svgToPdfPage(svgOf(ws, ws.views[o.view!]))], { title: ws.views[o.view!].name }),
+    });
+    ctx.exporters.register({
+      id: "pdf",
+      label: "PDF (all views)",
+      extension: "pdf",
+      scope: "workspace",
+      export: (ws): ExportResult => writeVectorPdf(orderedViews(ws).map((v) => svgToPdfPage(svgOf(ws, v))), { title: ws.name }),
+    });
+    ctx.exporters.register({
+      id: "pdf-image-view",
+      label: "PDF as an image (this view)",
       extension: "pdf",
       scope: "view",
       async export(ws, o): Promise<ExportResult> {
@@ -115,8 +130,8 @@ export const hostExporters = definePlugin({
       },
     });
     ctx.exporters.register({
-      id: "pdf",
-      label: "PDF (all views)",
+      id: "pdf-image",
+      label: "PDF as images (all views)",
       extension: "pdf",
       scope: "workspace",
       async export(ws): Promise<ExportResult> {
