@@ -207,7 +207,19 @@ export interface ConnectorCli {
   flags?: Record<string, string>;
 }
 
-/** Read-only discovery: returns a draft patch the user reviews as a diff. */
+/** One change a connector proposes to make in the external system. The request is exactly what will be sent. */
+export interface WriteBackItem {
+  id: string;
+  kind: "update" | "create";
+  /** What changes, in words, e.g. 'Rename "shop-web" to "Shop web"'. */
+  label: string;
+  /** The value now in the external system and the value that would be written. */
+  before?: string;
+  after?: string;
+  request: { method: "PATCH" | "POST" | "PUT"; path: string; body: Record<string, unknown> };
+}
+
+/** Discovery: returns a draft patch the user reviews as a diff. Some connectors can also write back, always after review. */
 export interface Connector {
   id: string;
   label: string;
@@ -215,6 +227,10 @@ export interface Connector {
   fields: ConnectorField[];
   cli?: ConnectorCli;
   discover(input: { files: ImportInput[]; config: Record<string, string> }, ws: Workspace): Promise<ModelPatch> | ModelPatch;
+  /** Compare the model with the external system and list what writing back would change. Never writes. */
+  planWriteBack?(input: { config: Record<string, string> }, ws: Workspace): Promise<{ items: WriteBackItem[]; report: string[] }>;
+  /** Send the reviewed items, one by one. Returns one result line per item. */
+  applyWriteBack?(input: { config: Record<string, string> }, items: WriteBackItem[]): Promise<string[]>;
 }
 
 export interface LayoutGraph {

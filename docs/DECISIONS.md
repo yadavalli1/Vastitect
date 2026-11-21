@@ -131,3 +131,11 @@ use the Open Exchange importer instead of XMI.
 ## D-30 kubectl is limited to `get`
 The desktop shell runs `kubectl get <resources> -o json` only, with `--context`/`--namespace` as the only
 flags, and refuses any resource list that includes secrets.
+
+## D-31 Write-back is planned live, picked by the user, and never deletes
+Connectors may offer `planWriteBack` and `applyWriteBack`. For ServiceNow the plan reads the CMDB as it
+is now and lists renames, description changes and missing "Depends on::Used by" relationships between
+CIs that came from ServiceNow. The user ticks the changes and confirms a second time before anything is
+sent. Each item carries the exact request that will be sent, and the connector refuses requests outside
+`cmdb_ci` and `cmdb_rel_ci`. Deleting CIs or relationships is deliberately not offered. Owner and lifecycle
+are not written: they are reference and choice fields whose values differ per instance.

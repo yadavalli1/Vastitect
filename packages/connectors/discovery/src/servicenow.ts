@@ -1,4 +1,4 @@
-import type { ImportInput, ModelPatch } from "@vastitecture/plugin-sdk";
+import type { Element, ImportInput, ModelPatch, Workspace, WriteBackItem } from "@vastitecture/plugin-sdk";
 import { Draft, type J, csvRows } from "./util";
 
 /** CMDB tables read by default: business applications, services, applications, databases and hosts. */
@@ -212,4 +212,108 @@ export async function fetchServiceNow(
   const rels: J[] = [];
   for (let i = 0; i < ids.length; i += 100) rels.push(...(await get("cmdb_rel_ci", `parentIN${ids.slice(i, i + 100).join(",")}`, ["parent", "child", "type"])));
   return { cis, rels, instance: base };
+}
+
+type WriteFetch = (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => Promise<{ status: number; text: string }>;
+export interface SnAuth {
+  instance: string;
+  username?: string;
+  password?: string;
+  token?: string;
+}
+function connection(o: SnAuth) {
+  const host = o.instance.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!host) throw new Error("Enter your ServiceNow instance, e.g. acme.service-now.com");
+  const base = `https://${host.includes(".") ? host : `${host}.service-now.com`}`;
+  const headers: Record<string, string> = { Accept: "application/json", "Content-Type": "application/json" };
+  if (o.token) headers.Authorization = `Bearer ${o.token}`;
+  else if (o.username && o.password) headers.Authorization = `Basic ${btoa(`${o.username}:${o.password}`)}`;
+  else throw new Error("Enter a username and password, or an OAuth token");
+  return { base, headers };
+}
+
+/** The relationship type written for "depends on" in the CMDB. */
+export const DEPENDS_ON = "Depends on::Used by";
+
+/**
+ * What writing the model back to the CMDB would change: names and descriptions edited in the model,
+ * and dependencies drawn in the model between two CIs that the CMDB does not have yet. It reads the
+ * current CMDB values first, so the plan compares against the instance as it is now. Nothing is deleted.
+ */
+export async function planServiceNowWriteBack(fetch: WriteFetch, auth: SnAuth, ws: Workspace): Promise<{ items: WriteBackItem[]; report: string[] }> {
+  const { base, headers } = connection(auth);
+  const sysId = (e: Element) => (typeof e.properties.externalId === "string" && e.properties.externalId.startsWith("servicenow:") ? e.properties.externalId.slice(11) : undefined);
+  const backed = Object.values(ws.elements).filter((e) => sysId(e));
+  const report: string[] = [];
+  if (!backed.length) return { items: [], report: ["No elements in this workspace came from ServiceNow, so there is nothing to write back. Discover from ServiceNow first."] };
+  const get = async (table: string, query: string, fields: string) => {
+    const out: J[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const r = await fetch(`${base}/api/now/table/${table}?sysparm_query=${encodeURIComponent(query)}&sysparm_fields=${fields}&sysparm_limit=500&sysparm_offset=${offset}&sysparm_exclude_reference_link=true`, { method: "GET", headers });
+      if (r.status === 401 || r.status === 403) throw new Error(`ServiceNow refused to read ${table} (HTTP ${r.status})`);
+      if (r.status >= 400) throw new Error(`ServiceNow returned HTTP ${r.status} for ${table}: ${r.text.slice(0, 200)}`);
+      const rows = (JSON.parse(r.text).result ?? []) as J[];
+      out.push(...rows);
+      if (rows.length < 500) return out;
+    }
+  };
+  const ids = backed.map((e) => sysId(e)!);
+  const current = new Map<string, J>();
+  for (let i = 0; i < ids.length; i += 100) for (const r of await get("cmdb_ci", `sys_idIN${ids.slice(i, i + 100).join(",")}`, "sys_id,name,short_description")) current.set(val(r.sys_id), r);
+  const items: WriteBackItem[] = [];
+  let gone = 0;
+  for (const e of backed) {
+    const id = sysId(e)!;
+    const rec = current.get(id);
+    if (!rec) {
+      gone++;
+      continue;
+    }
+    const name = val(rec.name), desc = val(rec.short_description);
+    if (e.name.trim() && e.name !== name)
+      items.push({ id: `name:${id}`, kind: "update", label: `Rename "${name}" to "${e.name}"`, before: name, after: e.name, request: { method: "PATCH", path: `/api/now/table/cmdb_ci/${id}`, body: { name: e.name } } });
+    if (e.description?.trim() && e.description !== desc)
+      items.push({ id: `desc:${id}`, kind: "update", label: `Description of "${e.name}"`, before: desc, after: e.description, request: { method: "PATCH", path: `/api/now/table/cmdb_ci/${id}`, body: { short_description: e.description } } });
+  }
+  if (gone) report.push(`${gone} element(s) point at CIs that no longer exist in ServiceNow; they were skipped`);
+
+  // Dependencies: "A uses B" (C4) and "B serves A" (ArchiMate) both mean A depends on B.
+  const wanted = new Map<string, { parent: Element; child: Element }>();
+  for (const r of Object.values(ws.relationships)) {
+    const [a, b] = r.type === "archimate:Serving" ? [ws.elements[r.target], ws.elements[r.source]] : r.type === "c4:Uses" ? [ws.elements[r.source], ws.elements[r.target]] : [];
+    if (!a || !b || !sysId(a) || !sysId(b) || !current.has(sysId(a)!) || !current.has(sysId(b)!)) continue;
+    wanted.set(`${sysId(a)}|${sysId(b)}`, { parent: a, child: b });
+  }
+  if (wanted.size) {
+    const existing = new Set<string>();
+    const parents = [...new Set([...wanted.values()].map((w) => sysId(w.parent)!))];
+    for (let i = 0; i < parents.length; i += 100) for (const r of await get("cmdb_rel_ci", `parentIN${parents.slice(i, i + 100).join(",")}`, "parent,child")) existing.add(`${val(r.parent)}|${val(r.child)}`);
+    const missing = [...wanted].filter(([k]) => !existing.has(k));
+    if (missing.length) {
+      const [type] = await get("cmdb_rel_type", `name=${DEPENDS_ON}`, "sys_id");
+      if (!type) report.push(`The relationship type "${DEPENDS_ON}" was not found, so ${missing.length} new dependency(ies) cannot be written`);
+      else
+        for (const [k, { parent, child }] of missing)
+          items.push({ id: `rel:${k}`, kind: "create", label: `"${parent.name}" depends on "${child.name}"`, after: DEPENDS_ON, request: { method: "POST", path: "/api/now/table/cmdb_rel_ci", body: { parent: sysId(parent), child: sysId(child), type: val(type.sys_id) } } });
+    }
+  }
+  report.unshift(`${backed.length} element(s) came from ServiceNow; ${items.length} change(s) to write`);
+  return { items, report };
+}
+
+/** Send reviewed changes one at a time; a failure is reported and the rest still run. Only CMDB tables are allowed. */
+export async function applyServiceNowWriteBack(fetch: WriteFetch, auth: SnAuth, items: WriteBackItem[]): Promise<string[]> {
+  const { base, headers } = connection(auth);
+  const out: string[] = [];
+  for (const it of items) {
+    if (!/^\/api\/now\/table\/(cmdb_ci|cmdb_rel_ci)(\/[0-9a-f]{32})?$/.test(it.request.path) || !["PATCH", "POST"].includes(it.request.method)) {
+      out.push(`✗ ${it.label}: refused (not a CMDB update)`);
+      continue;
+    }
+    const r = await fetch(base + it.request.path, { method: it.request.method, headers, body: JSON.stringify(it.request.body) });
+    if (r.status === 401 || r.status === 403) out.push(`✗ ${it.label}: ServiceNow refused (HTTP ${r.status}); writing needs a role such as itil or cmdb_editor`);
+    else if (r.status >= 400) out.push(`✗ ${it.label}: HTTP ${r.status} ${r.text.slice(0, 120)}`);
+    else out.push(`✓ ${it.label}`);
+  }
+  return out;
 }

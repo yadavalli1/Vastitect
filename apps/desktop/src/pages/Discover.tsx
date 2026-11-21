@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { reconcilePatch, type ConnectorCli, type ImportInput } from "@vastitecture/core";
+import { reconcilePatch, type ConnectorCli, type ImportInput, type WriteBackItem } from "@vastitecture/core";
 import { model, registry, set, toast, useRegistryVersion } from "../state";
 import { isTauri, pickFiles, secrets } from "../platform";
 import { MANIFESTS } from "@vastitecture/connectors-discovery";
@@ -69,6 +69,7 @@ export function DiscoverPage() {
   const [busy, setBusy] = useState(false);
   const [cliErrors, setCliErrors] = useState<string[]>([]);
   const [stored, setStored] = useState<Record<string, boolean>>({});
+  const [plan, setPlan] = useState<{ items: WriteBackItem[]; report: string[]; picked: Set<string>; confirming?: boolean; results?: string[] }>();
   useEffect(() => {
     // Show which secrets are already in the keychain, without ever reading them into the page.
     let live = true;
@@ -79,16 +80,20 @@ export function DiscoverPage() {
   }, [c?.id]);
   if (!c) return <div style={{ padding: 16 }}>{t("No discovery connectors are installed.")}</div>;
   const needsFiles = c.fields.some((f) => f.type === "files" && !f.optional);
+  /** Secrets go to the OS keychain; the connector reads them from there, never from the config. */
+  const storeSecrets = async () => {
+    for (const f of c.fields.filter((x) => x.type === "secret" && x.secret && config[x.key])) {
+      await secrets.set(f.secret!, config[f.key]);
+      setStored((s) => ({ ...s, [f.key]: true }));
+    }
+    const cleanConfig = Object.fromEntries(Object.entries(config).filter(([k]) => c.fields.find((f) => f.key === k)?.type !== "secret"));
+    setConfig(cleanConfig);
+    return cleanConfig;
+  };
   const run = async () => {
     setBusy(true);
     try {
-      // Secrets go to the OS keychain; the connector reads them from there, never from the config.
-      for (const f of c.fields.filter((x) => x.type === "secret" && x.secret && config[x.key])) {
-        await secrets.set(f.secret!, config[f.key]);
-        setStored((s) => ({ ...s, [f.key]: true }));
-      }
-      const cleanConfig = Object.fromEntries(Object.entries(config).filter(([k]) => c.fields.find((f) => f.key === k)?.type !== "secret"));
-      setConfig(cleanConfig);
+      const cleanConfig = await storeSecrets();
       const draft = await c.discover({ files, config: cleanConfig }, model.state);
       // Re-running updates the same elements (matched by external id) and the same draft views.
       const patch = reconcilePatch(model.state, draft);
@@ -104,7 +109,7 @@ export function DiscoverPage() {
       <nav className="panel border-r scroll" style={{ width: 260 }} aria-label={t("Connectors")}>
         <div className="h">{t("Discovery connectors")}</div>
         {connectors.map((x) => (
-          <div key={x.id} role="button" tabIndex={0} className={`row${x.id === c.id ? " active" : ""}`} onClick={() => (setId(x.id), setFiles([]), setConfig({}), setCliErrors([]))} onKeyDown={(e) => e.key === "Enter" && setId(x.id)}>
+          <div key={x.id} role="button" tabIndex={0} className={`row${x.id === c.id ? " active" : ""}`} onClick={() => (setId(x.id), setFiles([]), setConfig({}), setCliErrors([]), setPlan(undefined))} onKeyDown={(e) => e.key === "Enter" && setId(x.id)}>
             {x.label}
           </div>
         ))}
@@ -172,6 +177,57 @@ export function DiscoverPage() {
           ),
         )}
         <button className="btn primary mt-3" disabled={busy || (needsFiles && !files.length)} onClick={() => void run()}>{busy ? t("Discovering…") : t("Discover")}</button>
+        {c.planWriteBack && (
+          <section className="panel" style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 10, marginTop: 16 }} data-testid="write-back">
+            <h3 style={{ marginTop: 0 }}>{t("Write back to {name}", { name: c.label })}</h3>
+            <p className="muted" style={{ fontSize: 12 }}>{t("Compares the model with the live system and lists names, descriptions and dependencies changed in the model. Nothing is sent until you pick changes and confirm. Nothing is ever deleted.")}</p>
+            <button className="btn" disabled={busy} onClick={async () => {
+              setBusy(true);
+              try {
+                const r = await c.planWriteBack!({ config: await storeSecrets() }, model.state);
+                setPlan({ ...r, picked: new Set(r.items.map((x) => x.id)) });
+              } catch (e) {
+                toast(t("Comparison failed: {error}", { error: e instanceof Error ? e.message : String(e) }));
+              } finally {
+                setBusy(false);
+              }
+            }}>{t("Compare with the live system")}</button>
+            {plan && (
+              <div style={{ marginTop: 8 }}>
+                <ul className="muted" style={{ fontSize: 12, paddingLeft: 18 }}>{plan.report.map((r) => <li key={r}>{r}</li>)}</ul>
+                {plan.items.map((it) => (
+                  <label key={it.id} className="flex gap-2" style={{ alignItems: "flex-start", fontSize: 13, margin: "4px 0" }}>
+                    <input type="checkbox" checked={plan.picked.has(it.id)} onChange={(e) => { const picked = new Set(plan.picked); if (e.target.checked) picked.add(it.id); else picked.delete(it.id); setPlan({ ...plan, picked, confirming: false }); }} />
+                    <span>
+                      {it.label}
+                      {(it.before !== undefined || it.after !== undefined) && <span className="muted" style={{ display: "block", fontSize: 11 }}>{it.before !== undefined ? `“${it.before || "∅"}” → ` : ""}“{it.after}”</span>}
+                    </span>
+                  </label>
+                ))}
+                {!!plan.items.length && !plan.results && (plan.confirming ? (
+                  <p role="alert">
+                    {t("This changes {count} record(s) in the live system. Continue?", { count: plan.picked.size })}{" "}
+                    <button className="btn primary" disabled={busy} onClick={async () => {
+                      setBusy(true);
+                      try {
+                        const results = await c.applyWriteBack!({ config: await storeSecrets() }, plan.items.filter((x) => plan.picked.has(x.id)));
+                        setPlan({ ...plan, confirming: false, results });
+                      } catch (e) {
+                        toast(t("Write-back failed: {error}", { error: e instanceof Error ? e.message : String(e) }));
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}>{t("Yes, write the changes")}</button>{" "}
+                    <button className="btn" onClick={() => setPlan({ ...plan, confirming: false })}>{t("Cancel")}</button>
+                  </p>
+                ) : (
+                  <button className="btn primary" disabled={!plan.picked.size} onClick={() => setPlan({ ...plan, confirming: true })}>{t("Write {count} selected change(s)…", { count: plan.picked.size })}</button>
+                ))}
+                {plan.results && <ul data-testid="write-back-results" style={{ fontSize: 13 }}>{plan.results.map((r, i) => <li key={i}>{r}</li>)}</ul>}
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );

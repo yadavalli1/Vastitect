@@ -457,3 +457,64 @@ describe("kubectl output", () => {
     expect(fromKubectl.elements!.map((e) => e.name).sort()).toEqual(fromFiles.elements!.map((e) => e.name).sort());
   });
 });
+
+import { applyServiceNowWriteBack, planServiceNowWriteBack } from "./index";
+
+describe("ServiceNow write-back", () => {
+  const A = "a".repeat(32), B = "b".repeat(32), C = "c".repeat(32);
+  function fakeInstance(opts: { relType?: boolean } = {}) {
+    const sent: { method: string; url: string; body?: any }[] = [];
+    const cmdb: Record<string, { name: string; short_description: string }> = { [A]: { name: "shop-web", short_description: "Web front end" }, [B]: { name: "shop-api", short_description: "" } };
+    const fetch = async (url: string, init?: { method?: string; body?: string }) => {
+      const u = new URL(url);
+      const method = init?.method ?? "GET";
+      sent.push({ method, url: u.pathname + u.search, body: init?.body ? JSON.parse(init.body) : undefined });
+      const table = u.pathname.split("/")[4];
+      if (method !== "GET") return { status: method === "POST" ? 201 : 200, text: "{}" };
+      const q = u.searchParams.get("sysparm_query") ?? "";
+      if (table === "cmdb_ci") return { status: 200, text: JSON.stringify({ result: Object.entries(cmdb).filter(([id]) => q.includes(id)).map(([sys_id, r]) => ({ sys_id, ...r })) }) };
+      if (table === "cmdb_rel_ci") return { status: 200, text: JSON.stringify({ result: [] }) };
+      if (table === "cmdb_rel_type") return { status: 200, text: JSON.stringify({ result: opts.relType === false ? [] : [{ sys_id: "d".repeat(32) }] }) };
+      return { status: 404, text: "{}" };
+    };
+    return { fetch, sent };
+  }
+  function model() {
+    const ws = emptyWorkspace();
+    const web = mkEl("c4:Container", "Shop web", { description: "Web front end", properties: { externalId: `servicenow:${A}` } });
+    const api = mkEl("c4:Container", "shop-api", { description: "Order and cart API", properties: { externalId: `servicenow:${B}` } });
+    const gone = mkEl("c4:Container", "old", { properties: { externalId: `servicenow:${C}` } });
+    const local = mkEl("c4:Container", "Not in CMDB");
+    for (const e of [web, api, gone, local]) ws.elements[e.id] = e;
+    for (const r of [mkRel("c4:Uses", web.id, api.id), mkRel("c4:Uses", web.id, local.id)]) ws.relationships[r.id] = r;
+    return ws;
+  }
+
+  it("plans renames, descriptions and missing dependencies against the live CMDB, and never deletes", async () => {
+    const { fetch, sent } = fakeInstance();
+    const plan = await planServiceNowWriteBack(fetch, { instance: "acme", username: "u", password: "p" }, model());
+    expect(plan.items.map((i) => [i.label, i.request.method, i.request.path, i.request.body])).toEqual([
+      ['Rename "shop-web" to "Shop web"', "PATCH", `/api/now/table/cmdb_ci/${A}`, { name: "Shop web" }],
+      ['Description of "shop-api"', "PATCH", `/api/now/table/cmdb_ci/${B}`, { short_description: "Order and cart API" }],
+      ['"Shop web" depends on "shop-api"', "POST", "/api/now/table/cmdb_rel_ci", { parent: A, child: B, type: "d".repeat(32) }],
+    ]);
+    expect(plan.report).toEqual(["3 element(s) came from ServiceNow; 3 change(s) to write", "1 element(s) point at CIs that no longer exist in ServiceNow; they were skipped"]);
+    expect(sent.every((s) => s.method === "GET")).toBe(true);
+  });
+
+  it("sends only the reviewed items, refuses anything outside the CMDB, and reports each result", async () => {
+    const { fetch, sent } = fakeInstance();
+    const plan = await planServiceNowWriteBack(fetch, { instance: "acme", token: "t" }, model());
+    sent.length = 0;
+    const tampered = { ...plan.items[0], id: "x", label: "Delete users", request: { method: "PATCH" as const, path: "/api/now/table/sys_user/" + A, body: {} } };
+    const results = await applyServiceNowWriteBack(fetch, { instance: "acme", token: "t" }, [plan.items[0], plan.items[2], tampered]);
+    expect(results).toEqual(['✓ Rename "shop-web" to "Shop web"', '✓ "Shop web" depends on "shop-api"', "✗ Delete users: refused (not a CMDB update)"]);
+    expect(sent.map((s) => `${s.method} ${s.url}`)).toEqual([`PATCH /api/now/table/cmdb_ci/${A}`, "POST /api/now/table/cmdb_rel_ci"]);
+  });
+
+  it("explains when nothing came from ServiceNow or the dependency type is missing", async () => {
+    expect((await planServiceNowWriteBack(fakeInstance().fetch, { instance: "acme", token: "t" }, emptyWorkspace())).report[0]).toMatch(/Discover from ServiceNow first/);
+    const plan = await planServiceNowWriteBack(fakeInstance({ relType: false }).fetch, { instance: "acme", token: "t" }, model());
+    expect(plan.report).toContain('The relationship type "Depends on::Used by" was not found, so 1 new dependency(ies) cannot be written');
+  });
+});

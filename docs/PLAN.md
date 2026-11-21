@@ -107,7 +107,6 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] Reports to CSV, Excel, Markdown
 - [x] AWS and Git repository connectors
 - [x] ServiceNow CMDB (Table API or exports), Google Cloud and Azure connectors (read-only CLI or saved output)
-- [ ] TODO: write-back to the ServiceNow CMDB (connectors are read-only today)
 - [x] AI assistant (off by default): OpenAI-compatible endpoint, keychain storage, all changes as reviewable diffs
 - [x] Search: in-memory everywhere, SQLite FTS5 index on desktop
 - [x] Merge view for conflicting edits
@@ -129,7 +128,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] Assistant chat beside the canvas; ask-the-model; draft an ADR (all changes through the review dialog)
 - [x] Connectors: GitHub organisation scan, live Kubernetes (`kubectl get`), Jira / Azure DevOps, LeanIX / Ardoq / Sparx EA
 - [ ] TODO: check the LeanIX, Ardoq and Sparx mappings against real exports (built from public documentation and hand-written fixtures)
-- [ ] ServiceNow write-back
+- [x] ServiceNow write-back: names, descriptions and new dependencies, compared live, picked and confirmed
 - [ ] Plateaus (as-is / to-be), cost overlay, data classification and flow, coupling metrics
 - [ ] Visual model diff, comments stored in the repository
 - [ ] Vector PDF; automated colour-contrast checks

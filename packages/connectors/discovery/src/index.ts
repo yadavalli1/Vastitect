@@ -12,9 +12,10 @@ import { fetchDatadog, observeTraces, tracesToPatch } from "./traces";
 import { codeOwners, fetchGithub, GH_FIELDS, parseGithubFiles, reposToPatch } from "./github";
 import { fetchAzureDevOps, fetchJira, linkWorkItems, parseWorkItemFiles } from "./workitems";
 import { ardoqToPatch, leanixToPatch, sparxToPatch } from "./enterprise";
-import { fetchServiceNow, parseServiceNowFiles, serviceNowToPatch, SERVICENOW_TABLES } from "./servicenow";
+import { applyServiceNowWriteBack, fetchServiceNow, parseServiceNowFiles, planServiceNowWriteBack, serviceNowToPatch, SERVICENOW_TABLES } from "./servicenow";
 
 export { discoverApis, discoverCompose, discoverKubernetes, discoverTerraform, discoverBackstage, discoverGit, discoverAws };
+export { applyServiceNowWriteBack, planServiceNowWriteBack };
 export { AWS_COMMANDS, discoverAzure, discoverGcp, AZ_COMMANDS, GCLOUD_COMMANDS, fetchServiceNow, parseServiceNowFiles, serviceNowToPatch, SERVICENOW_TABLES };
 export { fetchDatadog, observeTraces, tracesToPatch };
 export { codeOwners, fetchGithub, parseGithubFiles, reposToPatch, fetchAzureDevOps, fetchJira, linkWorkItems, parseWorkItemFiles, ardoqToPatch, leanixToPatch, sparxToPatch };
@@ -28,6 +29,7 @@ export default definePlugin({
   manifest: { id: "vastitecture.discovery", name: "Discovery connectors", version: "0.1.0", apiVersion: "1.0.0", capabilities: ["connector"], permissions: { fs: ["read:pick"], network: ["*.service-now.com", "*.servicenowservices.com", "api.datadoghq.com", "api.datadoghq.eu", "api.us3.datadoghq.com", "api.us5.datadoghq.com", "api.ap1.datadoghq.com", "api.ddog-gov.com", "api.github.com", "*.atlassian.net", "dev.azure.com"], secrets: ["servicenow-password", "servicenow-token", "datadog-api-key", "datadog-app-key", "github-token", "jira-token", "azure-devops-token"] } },
   activate(ctx) {
     const files = { key: "files", label: "Files", type: "files" as const };
+    const snAuth = (config: Record<string, string>) => snAuthWith(ctx, config);
     ctx.connectors.register({
       id: "openapi",
       label: "OpenAPI / AsyncAPI",
@@ -120,6 +122,13 @@ export default definePlugin({
         const password = token ? undefined : await ctx.secrets.get("servicenow-password");
         const data = await fetchServiceNow((url, init) => ctx.net.fetch(url, init), { instance: i.config.instance ?? "", username: i.config.username, password, token, query: i.config.query });
         return serviceNowToPatch(data, `ServiceNow (${new URL(data.instance!).host})`);
+      },
+      // Write-back: compares the model with the CMDB as it is now; the user picks what to send.
+      async planWriteBack(i, ws) {
+        return planServiceNowWriteBack((url, init) => ctx.net.fetch(url, init), await snAuth(i.config), ws);
+      },
+      async applyWriteBack(i, items) {
+        return applyServiceNowWriteBack((url, init) => ctx.net.fetch(url, init), await snAuth(i.config), items);
       },
     });
     ctx.connectors.register({
@@ -223,6 +232,11 @@ export default definePlugin({
     });
   },
 });
+
+async function snAuthWith(ctx: { secrets: { get(n: string): Promise<string | undefined> } }, config: Record<string, string>) {
+  const token = await ctx.secrets.get("servicenow-token");
+  return { instance: config.instance ?? "", username: config.username, token, password: token ? undefined : await ctx.secrets.get("servicenow-password") };
+}
 
 function withReport(patch: ModelPatch, extra: string[]): ModelPatch {
   return { ...patch, report: [...(patch.report ?? []), ...extra] };
