@@ -41,6 +41,10 @@ export function AssistantPage() {
           <span className="muted">{t("Translating a view into another notation below works without it.")}</span>
         </p>
       )}
+      <p>
+        <button className="btn" onClick={() => set({ page: "diagram", chatOpen: true })}>✦ {t("Open the chat beside the canvas")}</button>{" "}
+        <span className="muted">{t("Ask questions about the model, ask for changes in plain words, or draft a decision record about the selection.")}</span>
+      </p>
       <section>
         <h3>{t("Draft a model from a description")}</h3>
         <textarea className="input" aria-label={t("Description or document")} style={{ minHeight: 120 }} placeholder={t("Describe a system, or paste a design document…")} value={text} onChange={(e) => setText(e.target.value)} />

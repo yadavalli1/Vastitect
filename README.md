@@ -29,7 +29,7 @@ its DDD context map and its fact-sheet row.
 | Architecture rules | Checks written as data in `vastitecture.yaml` (required owners, forbidden dependencies, boundaries, fan-in/fan-out limits), shown live in the app and enforced in CI by the `vastitecture` command-line tool, which also diffs and exports workspaces ([docs/CLI.md](docs/CLI.md)) |
 | Discovery (read-only, with a diff preview) | OpenAPI and AsyncAPI, docker-compose, Kubernetes and Helm, Terraform state or plan, Backstage catalog, AWS, Google Cloud and Azure (through your own `aws`/`gcloud`/`az` CLI sign-in in the desktop app, or their saved JSON output), ServiceNow CMDB (live Table API in the desktop app, or JSON/CSV exports), runtime traces from OpenTelemetry, Jaeger, Zipkin or Datadog (compared with the model to show undocumented and unused dependencies), Git repositories |
 | Plugins | Notation packs, importers, exporters, validators, connectors, layouts, themes and side panels in sandboxed workers with declared permissions. See [docs/PLUGINS.md](docs/PLUGINS.md) |
-| AI (optional, off by default) | Any OpenAI-compatible endpoint (Ollama, LiteLLM, hosted). Drafts models, suggests relationships, explains views, reviews the model. Every change arrives as a reviewable diff |
+| AI (optional, off by default) | Any OpenAI-compatible endpoint (Ollama, LiteLLM, hosted). Drafts models, suggests relationships, explains views, reviews the model, and a chat beside the canvas answers questions about the model, makes changes on request and drafts decision records. Every change arrives as a reviewable diff |
 
 ## Workspace on disk
 

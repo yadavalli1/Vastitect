@@ -136,6 +136,12 @@ export function ReviewDialog() {
           <span style={{ color: "var(--danger)" }}>−{diff.removed.length} {t("removed")}</span>
         </p>
         {empty && <p className="muted">{t("Nothing would change.")}</p>}
+        {review.patch.adrs?.map((a) => (
+          <details key={a.id} open className="panel" style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 8, marginBottom: 8 }} data-testid="review-adr">
+            <summary><strong>{a.id} {a.title}</strong> <span className="muted">({a.status})</span></summary>
+            <pre style={{ whiteSpace: "pre-wrap", maxHeight: 240, overflow: "auto", fontSize: 12 }}>{a.body}</pre>
+          </details>
+        ))}
         <div className="scroll" style={{ maxHeight: 330 }}>
           {diff.added.map((a) => <div key={a.kind + a.id} style={{ color: "var(--ok)" }}>+ {a.kind}: {a.label}</div>)}
           {diff.changed.map((c) => (

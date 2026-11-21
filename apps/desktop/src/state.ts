@@ -41,6 +41,7 @@ interface AppState {
   theme: "light" | "dark";
   codeOpen: boolean;
   problemsOpen: boolean;
+  chatOpen: boolean;
   impact: null | "dependsOn" | "usedBy";
   focus: boolean;
   presenting: boolean;
@@ -70,6 +71,7 @@ export const useApp = create<AppState>(() => ({
   theme: (localStorage.getItem("vastitecture/theme") as "light" | "dark") ?? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"),
   codeOpen: false,
   problemsOpen: false,
+  chatOpen: false,
   impact: null,
   focus: false,
   presenting: false,

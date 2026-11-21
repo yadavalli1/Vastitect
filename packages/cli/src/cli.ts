@@ -195,7 +195,7 @@ async function diff(baseDir: string, headDir: string, opt: Record<string, string
   const fixed = pb.filter((p) => !after.has(key(p)) && p.severity !== "info");
   if (opt.format === "json") io.out(JSON.stringify({ ...d, introduced, fixed }, null, 2));
   else {
-    const sym = { element: "◻", relationship: "→", view: "▦" };
+    const sym = { element: "◻", relationship: "→", view: "▦", decision: "✎" };
     const lines = [`### Architecture changes in ${head.name}`, "", `**+${d.added.length} added · ~${d.changed.length} changed · −${d.removed.length} removed**`, ""];
     const section = (title: string, items: string[]) => items.length && lines.push(`<details${items.length <= 15 ? " open" : ""}><summary>${title} (${items.length})</summary>`, "", ...items.slice(0, 300).map((s) => `- ${s}`), "", "</details>", "");
     section("Added", d.added.map((x) => `${sym[x.kind]} ${x.label}`));
