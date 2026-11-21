@@ -102,7 +102,8 @@ export function impliedRelationships(ws: Workspace, view: View, reg?: Registry, 
 
 export type Direction = "dependsOn" | "usedBy";
 
-function dependencyEdge(r: Relationship, reg?: Registry): [Id, Id] | undefined {
+/** Which way a relationship means "depends on": [dependent, dependency], or undefined for none. */
+export function dependencyEdge(r: Relationship, reg?: Registry): [Id, Id] | undefined {
   const dep = reg?.relationshipType(r.type)?.dependency ?? "forward";
   if (dep === "none") return undefined;
   return dep === "forward" ? [r.source, r.target] : [r.target, r.source];

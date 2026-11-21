@@ -129,8 +129,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] Connectors: GitHub organisation scan, live Kubernetes (`kubectl get`), Jira / Azure DevOps, LeanIX / Ardoq / Sparx EA
 - [ ] TODO: check the LeanIX, Ardoq and Sparx mappings against real exports (built from public documentation and hand-written fixtures)
 - [x] ServiceNow write-back: names, descriptions and new dependencies, compared live, picked and confirmed
-- [ ] Plateaus (as-is / to-be), cost overlay, data classification and flow, coupling metrics
-- [ ] Visual model diff, comments stored in the repository
+- [x] Plateaus (as-is / to-be), cost overlay (cloud billing exports), data classification and flow, coupling metrics
+- [x] Visual model diff (Git commit or another folder), comments stored in the repository
 - [ ] Vector PDF; automated colour-contrast checks
 
 ## Inputs needed from the owner

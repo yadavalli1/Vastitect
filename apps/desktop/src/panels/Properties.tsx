@@ -3,6 +3,7 @@ import { LIFECYCLE_PHASES, presentationType, viewsContaining, type Element, type
 import { dispatch, model, registry, select, set, useApp, useModel, useRegistryVersion } from "../state";
 import { createView, retype } from "../ops";
 import { t } from "../i18n";
+import { Comments } from "./Comments";
 
 /** Text input that commits on blur/Enter so every keystroke is not an undo step. */
 export function Field({ label, value, onCommit, multiline, type = "text", id }: { label: string; value: string; onCommit(v: string): void; multiline?: boolean; type?: string; id?: string }) {
@@ -187,6 +188,7 @@ function ElementProps({ el }: { el: Element }) {
           {a.id} {a.title} <span className="chip" style={{ marginLeft: "auto" }}>{a.status}</span>
         </div>
       ))}
+      <Comments target={{ kind: "element", id: el.id }} />
       <div className="muted" style={{ marginTop: 10, fontSize: 10 }}>{el.id}</div>
     </div>
   );

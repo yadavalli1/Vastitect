@@ -1,0 +1,6 @@
+Date,ResourceId,CostInBillingCurrency,BillingCurrency,Tags
+2026-09-01,/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/rg-shop/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-orders,300.00,EUR,
+2026-10-31,/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/RG-SHOP/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-orders,300.00,EUR,
+2026-10-15,/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/rg-shop/providers/Microsoft.ContainerService/managedClusters/aks-shop,1200.00,EUR,"""system"": ""Online Shop"""
+2026-10-15,/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/rg-misc/providers/Microsoft.Network/publicIPAddresses/ip-1,8.00,EUR,
+2026-10-15,,40.00,EUR,"""system"": ""Shop Production"""

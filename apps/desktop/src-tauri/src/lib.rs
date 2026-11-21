@@ -81,6 +81,16 @@ fn git_diff(root: String, path: String) -> Result<String, String> {
     shell::git_diff(Path::new(&root), &path)
 }
 
+#[tauri::command]
+async fn git_files_at(root: String, rev: String) -> Result<std::collections::BTreeMap<String, String>, String> {
+    shell::git_files_at(Path::new(&root), &rev)
+}
+
+#[tauri::command]
+fn git_log(root: String) -> Vec<shell::GitCommit> {
+    shell::git_log(Path::new(&root), 30)
+}
+
 /// Full-text search over the workspace files. The index is a cache under .vastitecture/cache.
 #[tauri::command]
 fn search(state: State<AppState>, root: String, query: String) -> Result<Vec<shell::SearchHit>, String> {
@@ -193,6 +203,8 @@ pub fn run() {
             ws_watch,
             ws_unwatch,
             write_binary,
+            git_files_at,
+            git_log,
             git_status,
             git_diff,
             search,

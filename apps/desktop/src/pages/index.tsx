@@ -14,6 +14,7 @@ import { RoadmapPage } from "./Roadmap";
 import { ImpactPage } from "./Impact";
 import { AdrsPage } from "./Adrs";
 import { RulesPage } from "./Rules";
+import { InsightsPage } from "./Insights";
 import { AssistantPage } from "./Assistant";
 import { SettingsPage } from "./Settings";
 import { t } from "../i18n";
@@ -24,6 +25,7 @@ pages.push(
   { id: "roadmap", label: () => t("Lifecycle roadmap"), icon: "⇶", render: () => <RoadmapPage /> },
   { id: "impact", label: () => t("Impact analysis"), icon: "⚡", render: () => <ImpactPage /> },
   { id: "rules", label: () => t("Architecture rules"), icon: "✓", render: () => <RulesPage /> },
+  { id: "insights", label: () => t("Insights"), icon: "◔", render: () => <InsightsPage /> },
   { id: "adrs", label: () => t("Decisions"), icon: "✎", render: () => <AdrsPage /> },
   { id: "reports", label: () => t("Catalogs and matrices"), icon: "▦", render: () => <ReportsPage /> },
   { id: "repository", label: () => t("Architecture repository"), icon: "🗂", render: () => <RepositoryPage /> },

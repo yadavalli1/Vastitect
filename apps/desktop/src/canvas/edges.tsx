@@ -13,7 +13,7 @@ export const ModelEdge = memo(function ModelEdge({ source, target, data, selecte
   const s = useInternalNode(source);
   const tg = useInternalNode(target);
   const rel = useModel((ws) => (data?.relationship ? ws.relationships[data.relationship] : undefined));
-  const { highlight } = useContext(CanvasContext);
+  const { highlight, overlay } = useContext(CanvasContext);
   if (!s || !tg) return null;
   const rect = (n: NonNullable<typeof s>) => ({
     x: n.internals.positionAbsolute.x,
@@ -36,7 +36,7 @@ export const ModelEdge = memo(function ModelEdge({ source, target, data, selecte
   const ends = def?.endLabels;
   const d = pointsToPath(pts);
   return (
-    <g className={`vedge${dim ? " dim" : ""}`} aria-label={rel ? `${def?.name ?? rel.type}${rel.label ? `: ${rel.label}` : ""}` : "implied relationship"}>
+    <g className={`vedge${dim ? " dim" : ""}${rel && overlay?.relationships?.[rel.id] ? ` tone-${overlay.relationships[rel.id]}` : ""}`} aria-label={rel ? `${def?.name ?? rel.type}${rel.label ? `: ${rel.label}` : ""}` : "implied relationship"}>
       <path d={d} fill="none" stroke="transparent" strokeWidth={14} className="react-flow__edge-interaction" />
       <path d={d} fill="none" stroke={stroke} strokeWidth={selected ? 2.2 : 1.3} strokeDasharray={data?.implied ? "2 4" : dashArray(def?.line)} />
       {markers.map((m, i) => m && <path key={i} d={m.d} stroke={stroke} strokeWidth={1.3} fill={m.fill === "stroke" ? stroke : m.fill === "bg" ? "var(--bg)" : "none"} />)}

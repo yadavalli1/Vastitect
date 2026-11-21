@@ -518,3 +518,29 @@ describe("ServiceNow write-back", () => {
     expect(plan.report).toContain('The relationship type "Depends on::Used by" was not found, so 1 new dependency(ies) cannot be written');
   });
 });
+
+import { costsToPatch, parseCostFiles } from "./index";
+
+describe("Cloud costs", () => {
+  it("matches Azure cost lines to resources found by the Azure connector and to tagged elements, per month", () => {
+    const base = apply(discoverAzure(dirFiles("azure")));
+    const patch = costsToPatch(base, parseCostFiles([fixture("costs/azure-cost-details.csv")]));
+    const ws = apply(reconcilePatch(base, patch), base);
+    const by = (n: string) => Object.values(ws.elements).find((e) => e.name === n)!;
+    // Two months (1 Sep – 31 Oct), so 600 EUR becomes 300 EUR a month
+    expect(by("pg-orders").properties).toMatchObject({ monthlyCost: 300, costCurrency: "EUR", costPeriod: "2026-09-01 – 2026-10-31" });
+    expect(by("aks-shop").properties.monthlyCost).toBe(600);
+    expect(by("Shop Production").properties.monthlyCost).toBe(20); // tag system=Shop Production, no resource id
+    expect(patch.report![0]).toBe("Cloud costs: 5 line(s) over 2 month(s); 920 EUR/month matched to 3 element(s)");
+    expect(patch.report![1]).toMatch(/^4 EUR\/month could not be matched/);
+  });
+
+  it("reads an AWS Cost and Usage Report with tag columns", () => {
+    const base = emptyWorkspace();
+    const db = mkEl("c4:Container", "orders", { properties: { externalId: "aws:rds:orders" } });
+    const shop = mkEl("c4:SoftwareSystem", "Online Shop");
+    for (const e of [db, shop]) base.elements[e.id] = e;
+    const patch = costsToPatch(base, parseCostFiles([fixture("costs/aws-cur.csv")]));
+    expect(patch.elements!.map((e) => [e.name, e.properties.monthlyCost, e.properties.costCurrency])).toEqual([["orders", 95.5, "USD"], ["Online Shop", 4.5, "USD"]]);
+  });
+});

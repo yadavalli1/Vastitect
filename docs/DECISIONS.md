@@ -139,3 +139,22 @@ CIs that came from ServiceNow. The user ticks the changes and confirms a second 
 sent. Each item carries the exact request that will be sent, and the connector refuses requests outside
 `cmdb_ci` and `cmdb_rel_ci`. Deleting CIs or relationships is deliberately not offered. Owner and lifecycle
 are not written: they are reference and choice fields whose values differ per instance.
+
+## D-32 Plateaus are derived from lifecycle dates
+Rather than maintaining separate as-is and to-be copies of the model, the state on a date is computed
+from each element's lifecycle dates. The migration view generated from it (ArchiMate plateaus aggregating
+the elements) is a normal, reviewable patch.
+
+## D-33 Data exposure stops at boundaries
+Classified data is followed along relationships in both directions (requests and answers), except where a
+relationship is marked `dataFlow: none`. An element cleared for a lower classification, or marked
+external, is reported and not traversed further, so one finding does not cascade into dozens.
+
+## D-34 Comments are one file per comment
+`comments/<id>.yaml` keeps concurrent comments from conflicting in Git. Ids are ULIDs, so files sort by
+time. Deleting an element deletes its comments; deleting a comment deletes its replies.
+
+## D-35 Comparing versions reads Git through the shell
+The desktop shell returns the workspace's files at a revision (`git ls-tree` and `git show`), refusing
+revision names that look like options or ranges. The comparison itself is `diffWorkspaces` in core, the
+same function the CLI's `diff` command uses.

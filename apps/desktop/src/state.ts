@@ -21,7 +21,7 @@ import { buildSample } from "./sample";
 export { registry };
 export const model = new ModelStore(emptyWorkspace());
 
-export type Page = "diagram" | "inventory" | "capabilities" | "roadmap" | "impact" | "rules" | "reports" | "adrs" | "repository" | "mappings" | "discover" | "plugins" | "assistant" | "settings";
+export type Page = "diagram" | "inventory" | "capabilities" | "roadmap" | "impact" | "rules" | "insights" | "reports" | "adrs" | "repository" | "mappings" | "discover" | "plugins" | "assistant" | "settings";
 
 export interface Review {
   title: string;
@@ -44,6 +44,8 @@ interface AppState {
   chatOpen: boolean;
   impact: null | "dependsOn" | "usedBy";
   focus: boolean;
+  /** An analysis drawn over the canvas until cleared. */
+  overlay?: import("./canvas/context").Overlay;
   presenting: boolean;
   commandOpen: boolean;
   newOpen: boolean;

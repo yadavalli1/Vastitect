@@ -138,6 +138,51 @@ pub fn git_diff(root: &Path, rel: &str) -> Result<String> {
     Ok(git(root, &["diff", "HEAD", "--", rel]).unwrap_or_default())
 }
 
+/// A revision name a user may pick: a commit hash, branch, tag or HEAD~n. Never an option.
+fn safe_rev(rev: &str) -> bool {
+    !rev.is_empty() && rev.len() <= 80 && !rev.starts_with('-') && rev.chars().all(|c| c.is_ascii_alphanumeric() || "_./~^-".contains(c)) && !rev.contains("..")
+}
+
+fn workspace_file(p: &str) -> bool {
+    p == "vastitecture.yaml"
+        || ((p.starts_with("model/") || p.starts_with("views/") || p.starts_with("comments/")) && p.ends_with(".yaml"))
+        || (p.starts_with("adrs/") && p.ends_with(".md"))
+}
+
+/// The workspace's files as they were at a revision (for comparing the model with an earlier version).
+pub fn git_files_at(root: &Path, rev: &str) -> Result<std::collections::BTreeMap<String, String>> {
+    if !safe_rev(rev) {
+        return Err(format!("Not a revision name: {rev}"));
+    }
+    let list = git(root, &["ls-tree", "-r", "--name-only", rev, "--", "."]).ok_or_else(|| format!("{rev} is not a revision of this repository, or the workspace is not under Git"))?;
+    let mut out = std::collections::BTreeMap::new();
+    for p in list.lines().filter(|p| workspace_file(p)) {
+        if let Some(text) = git(root, &["show", &format!("{rev}:./{p}")]) {
+            out.insert(p.to_string(), text);
+        }
+    }
+    Ok(out)
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+pub struct GitCommit {
+    pub hash: String,
+    pub subject: String,
+    pub date: String,
+}
+
+/// Recent commits that touched the workspace.
+pub fn git_log(root: &Path, limit: usize) -> Vec<GitCommit> {
+    git(root, &["log", &format!("-n{}", limit.min(200)), "--format=%h%x1f%s%x1f%cs", "--", "."])
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| {
+            let mut p = l.split('\x1f');
+            Some(GitCommit { hash: p.next()?.to_string(), subject: p.next()?.to_string(), date: p.next()?.to_string() })
+        })
+        .collect()
+}
+
 #[derive(Serialize, Debug, PartialEq)]
 pub struct SearchHit {
     pub path: String,
@@ -278,6 +323,31 @@ mod tests {
         assert_eq!(idx.sync(&files).unwrap(), 1);
         assert!(idx.search("payment", 10).unwrap().is_empty());
         assert!(idx.search("customer", 10).unwrap().is_empty());
+    }
+
+    #[test]
+    fn git_files_at_reads_a_committed_workspace_and_refuses_options() {
+        let dir = std::env::temp_dir().join(format!("vast-git-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("ws/model/elements/c4/container")).unwrap();
+        let run = |args: &[&str]| assert!(Command::new("git").arg("-C").arg(&dir).args(args).output().unwrap().status.success(), "git {args:?}");
+        run(&["init", "-q"]);
+        run(&["config", "user.email", "t@example.com"]);
+        run(&["config", "user.name", "t"]);
+        fs::write(dir.join("ws/vastitecture.yaml"), "format: 1\nname: A\n").unwrap();
+        fs::write(dir.join("ws/model/elements/c4/container/api.yaml"), "id: x\n").unwrap();
+        fs::write(dir.join("ws/notes.txt"), "not part of the model").unwrap();
+        run(&["add", "."]);
+        run(&["commit", "-qm", "first"]);
+        fs::write(dir.join("ws/vastitecture.yaml"), "format: 1\nname: B\n").unwrap();
+        let ws = dir.join("ws");
+        let files = git_files_at(&ws, "HEAD").unwrap();
+        assert_eq!(files.keys().collect::<Vec<_>>(), vec!["model/elements/c4/container/api.yaml", "vastitecture.yaml"]);
+        assert_eq!(files["vastitecture.yaml"], "format: 1\nname: A\n");
+        assert!(git_files_at(&ws, "--output=/tmp/x").is_err());
+        assert!(git_files_at(&ws, "HEAD..main").is_err());
+        assert_eq!(git_log(&ws, 5).iter().map(|c| c.subject.as_str()).collect::<Vec<_>>(), vec!["first"]);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

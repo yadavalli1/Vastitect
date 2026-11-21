@@ -12,10 +12,11 @@ import { fetchDatadog, observeTraces, tracesToPatch } from "./traces";
 import { codeOwners, fetchGithub, GH_FIELDS, parseGithubFiles, reposToPatch } from "./github";
 import { fetchAzureDevOps, fetchJira, linkWorkItems, parseWorkItemFiles } from "./workitems";
 import { ardoqToPatch, leanixToPatch, sparxToPatch } from "./enterprise";
+import { costsToPatch, parseCostFiles } from "./costs";
 import { applyServiceNowWriteBack, fetchServiceNow, parseServiceNowFiles, planServiceNowWriteBack, serviceNowToPatch, SERVICENOW_TABLES } from "./servicenow";
 
 export { discoverApis, discoverCompose, discoverKubernetes, discoverTerraform, discoverBackstage, discoverGit, discoverAws };
-export { applyServiceNowWriteBack, planServiceNowWriteBack };
+export { applyServiceNowWriteBack, planServiceNowWriteBack, costsToPatch, parseCostFiles };
 export { AWS_COMMANDS, discoverAzure, discoverGcp, AZ_COMMANDS, GCLOUD_COMMANDS, fetchServiceNow, parseServiceNowFiles, serviceNowToPatch, SERVICENOW_TABLES };
 export { fetchDatadog, observeTraces, tracesToPatch };
 export { codeOwners, fetchGithub, parseGithubFiles, reposToPatch, fetchAzureDevOps, fetchJira, linkWorkItems, parseWorkItemFiles, ardoqToPatch, leanixToPatch, sparxToPatch };
@@ -207,6 +208,16 @@ export default definePlugin({
         const token = await ctx.secrets.get("azure-devops-token");
         if (!token) throw new Error("Enter a personal access token, or pick a CSV export");
         return linkWorkItems(ws, await fetchAzureDevOps((url, init) => ctx.net.fetch(url, init), { organization: i.config.organization ?? "", project: i.config.project ?? "", token, wiql: i.config.wiql }), "Azure DevOps");
+      },
+    });
+    ctx.connectors.register({
+      id: "cloud-costs",
+      label: "Cloud costs",
+      description: "Monthly cost per element from an AWS Cost and Usage Report, an Azure cost details export or a Google Cloud billing export (CSV). Lines are matched by resource id to elements found by the cloud connectors, or by a tag naming an element. The Insights page rolls costs up through containment.",
+      fields: [files, { key: "tagKeys", label: "Tag keys that name an element", type: "string", placeholder: "system,application,app,service,component" }],
+      discover: (i, ws) => {
+        const report: string[] = [];
+        return withReport(costsToPatch(ws, parseCostFiles(i.files, report), i.config), report);
       },
     });
     ctx.connectors.register({

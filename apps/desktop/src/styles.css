@@ -88,3 +88,19 @@ table.grid td input, table.grid td select { width: 100%; border: 0; background: 
 .vedge.dim { opacity: 0.12; }
 .present .chrome { display: none !important; }
 .adr-body h2 { font-size: 16px; margin: 14px 0 4px; } .adr-body p { margin: 6px 0; } .adr-body code { background: var(--panel-2); padding: 0 3px; }
+
+/* Analysis overlays (model diff, plateaus, data exposure, costs). Colour is never the only signal: nodes also get a text badge. */
+.vnode.tone-add { outline: 3px solid var(--ok); outline-offset: 3px; border-radius: 4px; }
+.vnode.tone-change { outline: 3px solid var(--warn); outline-offset: 3px; border-radius: 4px; }
+.vnode.tone-remove { outline: 3px dashed var(--danger); outline-offset: 3px; border-radius: 4px; }
+.vnode.tone-warn { outline: 3px solid var(--danger); outline-offset: 3px; border-radius: 4px; }
+.vnode.tone-info { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.vedge.tone-add path:nth-child(2) { stroke: var(--ok); stroke-width: 2.5; }
+.vedge.tone-change path:nth-child(2) { stroke: var(--warn); stroke-width: 2.5; }
+.vedge.tone-warn path:nth-child(2), .vedge.tone-remove path:nth-child(2) { stroke: var(--danger); stroke-width: 2.5; }
+.vnode-mark { position: absolute; top: -12px; right: -6px; font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 8px; color: #fff; white-space: nowrap; z-index: 2; }
+.vnode-mark.tone-add { background: var(--ok); }
+.vnode-mark.tone-change { background: var(--warn); color: #111; }
+.vnode-mark.tone-remove, .vnode-mark.tone-warn { background: var(--danger); }
+.vnode-mark.tone-info { background: var(--accent); }
+.overlay-banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px 4px 12px; font-size: 13px; z-index: 5; box-shadow: 0 2px 8px rgb(0 0 0 / 0.15); }
