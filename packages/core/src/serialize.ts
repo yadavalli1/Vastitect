@@ -166,8 +166,10 @@ export function toFiles(ws: Workspace, index: PathIndex = {}): { files: FileMap;
       mappings: ws.mappings.map((m) => ordered({ ...m, members: sortKeys(m.members) }, ["concept", "label", "members"])),
       pluginSettings: sortKeys(ws.pluginSettings),
       savedFilters: ws.savedFilters,
+      // written only when present, so workspaces without rules keep byte-identical files
+      ...(ws.rules?.length ? { rules: ws.rules } : {}),
     },
-    ["format", "name", "packs", "mappings", "pluginSettings", "savedFilters"],
+    ["format", "name", "packs", "mappings", "pluginSettings", "savedFilters", "rules"],
   );
   files[SETTINGS_FILE] = toYaml(settings);
 

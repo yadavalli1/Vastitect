@@ -28,6 +28,10 @@ jobs:
         run: node scripts/extract-messages.mjs --check
       - name: Unit tests (core, notations, importers, connectors, plugin sandbox)
         run: pnpm test
+      - name: Command-line tool builds and runs on plain Node
+        run: |
+          pnpm --filter @vastitecture/cli build
+          node packages/cli/dist/vastitecture.mjs formats
       - name: Install Playwright's Chromium
         working-directory: apps/desktop
         run: pnpm exec playwright install --with-deps chromium

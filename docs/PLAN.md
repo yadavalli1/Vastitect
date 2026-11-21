@@ -121,6 +121,18 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] Performance budget verified in tests (open 5,000 elements/200 views, 300-node layout, 300-node pan)
 - [x] CONTRIBUTING.md, code of conduct, README, published JSON Schema, message extraction
 
+## Milestone 7 — Governance, runtime truth and assistant chat
+
+- [x] Architecture rules as data in `vastitecture.yaml`; rules page; violations in the Problems panel
+- [x] `@vastitecture/cli`: check (text, JSON, GitHub annotations, Markdown), diff, export, rules init; example workflow
+- [ ] Runtime-trace discovery (OpenTelemetry, Jaeger, Zipkin, Datadog)
+- [ ] Assistant chat beside the canvas; ask-the-model; draft an ADR
+- [ ] Connectors: GitHub organisation scan, live Kubernetes, Jira / Azure DevOps, LeanIX / Ardoq / Sparx EA
+- [ ] ServiceNow write-back
+- [ ] Plateaus (as-is / to-be), cost overlay, data classification and flow, coupling metrics
+- [ ] Visual model diff, comments stored in the repository
+- [ ] Vector PDF; automated colour-contrast checks
+
 ## Inputs needed from the owner
 
 | Item | Needed by | Blocking? |

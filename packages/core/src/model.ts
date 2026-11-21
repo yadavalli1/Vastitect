@@ -153,6 +153,8 @@ export const SettingsSchema = z.object({
   mappings: z.array(MappingRuleSchema).default([]),
   pluginSettings: z.record(z.unknown()).default({}),
   savedFilters: z.array(SavedFilterSchema).default([]),
+  /** Architecture rules (see rules.ts). Kept as raw data so one broken rule never stops a workspace loading. */
+  rules: z.array(z.unknown()).default([]),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
@@ -171,6 +173,7 @@ export function emptyWorkspace(name = "Untitled", packs: string[] = []): Workspa
     mappings: [],
     pluginSettings: {},
     savedFilters: [],
+    rules: [],
     elements: {},
     relationships: {},
     views: {},

@@ -38,7 +38,7 @@ export type Command =
   | { type: "putAnnotation"; view: Id; annotation: Annotation }
   | { type: "removeAnnotation"; view: Id; id: Id }
   | { type: "setMappings"; mappings: MappingRule[] }
-  | { type: "setSettings"; patch: { name?: string; packs?: string[]; savedFilters?: SavedFilter[]; pluginSettings?: Record<string, unknown> } }
+  | { type: "setSettings"; patch: { name?: string; packs?: string[]; savedFilters?: SavedFilter[]; pluginSettings?: Record<string, unknown>; rules?: unknown[] } }
   | { type: "putAdr"; adr: Adr }
   | { type: "removeAdr"; id: string }
   | { type: "applyPatch"; patch: ModelPatch }

@@ -95,3 +95,15 @@ so the connector calls the Table API directly through the plugin's permission-ch
 `*.service-now.com` and `*.servicenowservices.com`. Its password or OAuth token is stored only in the OS
 keychain. Browsers block those requests (CORS), so the web build imports Table API JSON or list CSV exports
 instead. All three are read-only; CMDB write-back is not built.
+
+## D-25 Architecture rules are declarative data
+Rules are YAML in `vastitecture.yaml` (selectors plus `require`, `forbid` and fan-in/fan-out limits)
+rather than scripts, so they can be reviewed in a pull request, run identically in the app and in CI,
+and never execute code from a workspace. Rules are stored raw and validated when checked, so one broken
+rule is reported as a problem without stopping the workspace from loading. The starter set lives with the
+other notation-aware defaults in `core/defaults.ts`.
+
+## D-26 The command-line tool is a single bundled file
+`@vastitecture/cli` bundles the core, notations and exporters with esbuild into
+`packages/cli/dist/vastitecture.mjs`, which runs on plain Node 20+. Discovery connectors are left out so
+the CLI never reaches the network.

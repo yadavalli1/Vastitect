@@ -1,0 +1,25 @@
+{
+  "name": "@vastitecture/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Check, diff and export Vastitecture workspaces from the command line or CI.",
+  "bin": { "vastitecture": "dist/vastitecture.mjs" },
+  "main": "src/cli.ts",
+  "scripts": { "build": "node build.mjs" },
+  "dependencies": {
+    "@vastitecture/core": "workspace:*",
+    "@vastitecture/plugin-sdk": "workspace:*",
+    "@vastitecture/notation-generic": "workspace:*",
+    "@vastitecture/notation-c4": "workspace:*",
+    "@vastitecture/notation-archimate": "workspace:*",
+    "@vastitecture/notation-ddd": "workspace:*",
+    "@vastitecture/notation-togaf": "workspace:*",
+    "@vastitecture/notation-inventory": "workspace:*",
+    "@vastitecture/io-structurizr": "workspace:*",
+    "@vastitecture/io-archimate": "workspace:*",
+    "@vastitecture/io-cml": "workspace:*",
+    "@vastitecture/io-formats": "workspace:*"
+  },
+  "devDependencies": { "esbuild": "0.25.12" }
+}

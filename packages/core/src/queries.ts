@@ -274,3 +274,17 @@ export function searchElements(ws: Workspace, query: string): Element[] {
     }),
   );
 }
+
+/** What changed between two versions of a workspace (for pull-request summaries and the visual diff). */
+export function diffWorkspaces(base: Workspace, head: Workspace): PatchDiff {
+  const changed = <T extends { id: Id }>(a: Record<Id, T>, b: Record<Id, T>) => Object.values(b).filter((x) => JSON.stringify(a[x.id]) !== JSON.stringify(x));
+  const gone = (a: Record<Id, unknown>, b: Record<Id, unknown>) => Object.keys(a).filter((id) => !b[id]);
+  return diffPatch(base, {
+    elements: changed(base.elements, head.elements),
+    relationships: changed(base.relationships, head.relationships),
+    views: changed(base.views, head.views),
+    removeElements: gone(base.elements, head.elements),
+    removeRelationships: gone(base.relationships, head.relationships),
+    removeViews: gone(base.views, head.views),
+  });
+}

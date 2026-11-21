@@ -142,6 +142,49 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/cli:
+    dependencies:
+      '@vastitecture/core':
+        specifier: workspace:*
+        version: link:../core
+      '@vastitecture/io-archimate':
+        specifier: workspace:*
+        version: link:../io/archimate
+      '@vastitecture/io-cml':
+        specifier: workspace:*
+        version: link:../io/cml
+      '@vastitecture/io-formats':
+        specifier: workspace:*
+        version: link:../io/formats
+      '@vastitecture/io-structurizr':
+        specifier: workspace:*
+        version: link:../io/structurizr
+      '@vastitecture/notation-archimate':
+        specifier: workspace:*
+        version: link:../notations/archimate
+      '@vastitecture/notation-c4':
+        specifier: workspace:*
+        version: link:../notations/c4
+      '@vastitecture/notation-ddd':
+        specifier: workspace:*
+        version: link:../notations/ddd
+      '@vastitecture/notation-generic':
+        specifier: workspace:*
+        version: link:../notations/generic
+      '@vastitecture/notation-inventory':
+        specifier: workspace:*
+        version: link:../notations/inventory
+      '@vastitecture/notation-togaf':
+        specifier: workspace:*
+        version: link:../notations/togaf
+      '@vastitecture/plugin-sdk':
+        specifier: workspace:*
+        version: link:../plugin-sdk
+    devDependencies:
+      esbuild:
+        specifier: 0.25.12
+        version: 0.25.12
+
   packages/connectors/discovery:
     dependencies:
       '@vastitecture/plugin-sdk':
