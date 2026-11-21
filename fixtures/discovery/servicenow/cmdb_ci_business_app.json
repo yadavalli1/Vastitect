@@ -1,0 +1,4 @@
+{"result":[
+ {"sys_id":{"value":"ba1","display_value":"ba1"},"name":{"value":"Online Shop","display_value":"Online Shop"},"sys_class_name":{"value":"cmdb_ci_business_app","display_value":"Business Application"},"short_description":{"value":"Customer storefront","display_value":"Customer storefront"},"it_application_owner":{"value":"u1","display_value":"Priya Shah"},"business_criticality":{"value":"1 - most critical","display_value":"1 - most critical"},"life_cycle_stage":{"value":"Operational","display_value":"Operational"}},
+ {"sys_id":{"value":"ba2","display_value":"ba2"},"name":{"value":"Legacy Billing","display_value":"Legacy Billing"},"sys_class_name":{"value":"cmdb_ci_business_app","display_value":"Business Application"},"life_cycle_stage":{"value":"Retired","display_value":"Retired"}}
+]}

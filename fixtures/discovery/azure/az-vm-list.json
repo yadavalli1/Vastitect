@@ -1,0 +1,1 @@
+[{"id":"/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/rg-shop/providers/Microsoft.Compute/virtualMachines/jumpbox","name":"jumpbox","type":"Microsoft.Compute/virtualMachines","location":"westeurope","resourceGroup":"RG-SHOP","hardwareProfile":{"vmSize":"Standard_B2s"}}]

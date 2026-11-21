@@ -192,7 +192,36 @@ export async function httpFetch(url: string, init?: { method?: string; headers?:
   return { status: r.status, headers: Object.fromEntries(r.headers.entries()), text: await r.text() };
 }
 
+/**
+ * The workspace to reopen at start-up, and recently used ones. Folder workspaces (desktop) are stored as
+ * "folder:<absolute path>"; workspaces kept in the app's own storage by name.
+ */
 export const lastWorkspace = {
   get: () => localStorage.getItem("vastitecture/last") ?? undefined,
-  set: (v: string) => localStorage.setItem("vastitecture/last", v),
+  set: (v: string) => {
+    localStorage.setItem("vastitecture/last", v);
+    const recent = [v, ...lastWorkspace.recent().filter((x) => x !== v)].slice(0, 8);
+    localStorage.setItem("vastitecture/recent", JSON.stringify(recent));
+  },
+  recent: (): string[] => {
+    try {
+      return JSON.parse(localStorage.getItem("vastitecture/recent") ?? "[]");
+    } catch {
+      return [];
+    }
+  },
+  forget: (v: string) => localStorage.setItem("vastitecture/recent", JSON.stringify(lastWorkspace.recent().filter((x) => x !== v))),
 };
+
+/** Show a workspace folder in Finder, Explorer or the file manager (desktop only). */
+export async function revealFolder(path: string) {
+  await invoke("reveal_folder", { path });
+}
+
+/** Explain file-system errors in terms a person can act on. */
+export function explainFsError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : typeof e === "string" ? e : JSON.stringify(e);
+  if (/not permitted|permission denied|access is denied|EACCES|EPERM/i.test(msg))
+    return `${msg}. The app is not allowed to write there. On macOS, allow Vastitecture under System Settings → Privacy & Security → Files and Folders (or Full Disk Access), or choose a folder outside Documents, Desktop and Downloads.`;
+  return msg;
+}

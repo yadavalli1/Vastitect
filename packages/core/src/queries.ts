@@ -102,7 +102,8 @@ export function impliedRelationships(ws: Workspace, view: View, reg?: Registry, 
 
 export type Direction = "dependsOn" | "usedBy";
 
-function dependencyEdge(r: Relationship, reg?: Registry): [Id, Id] | undefined {
+/** Which way a relationship means "depends on": [dependent, dependency], or undefined for none. */
+export function dependencyEdge(r: Relationship, reg?: Registry): [Id, Id] | undefined {
   const dep = reg?.relationshipType(r.type)?.dependency ?? "forward";
   if (dep === "none") return undefined;
   return dep === "forward" ? [r.source, r.target] : [r.target, r.source];
@@ -144,9 +145,9 @@ export function impact(ws: Workspace, start: Id, direction: Direction, reg?: Reg
 }
 
 export interface PatchDiff {
-  added: { kind: "element" | "relationship" | "view"; id: Id; label: string }[];
-  changed: { kind: "element" | "relationship" | "view"; id: Id; label: string; fields: { field: string; before: unknown; after: unknown }[] }[];
-  removed: { kind: "element" | "relationship" | "view"; id: Id; label: string }[];
+  added: { kind: "element" | "relationship" | "view" | "decision"; id: Id; label: string }[];
+  changed: { kind: "element" | "relationship" | "view" | "decision"; id: Id; label: string; fields: { field: string; before: unknown; after: unknown }[] }[];
+  removed: { kind: "element" | "relationship" | "view" | "decision"; id: Id; label: string }[];
 }
 
 const relLabel = (ws: Workspace, r: Relationship, extra: Record<Id, Element> = {}) =>
@@ -183,6 +184,11 @@ export function diffPatch(ws: Workspace, patch: ModelPatch): PatchDiff {
       const f = fields(cur, v);
       if (f.length) d.changed.push({ kind: "view", id: v.id, label: cur.name, fields: f });
     }
+  }
+  for (const a of patch.adrs ?? []) {
+    const cur = ws.adrs[a.id];
+    if (!cur) d.added.push({ kind: "decision", id: a.id, label: `${a.id} ${a.title}` });
+    else if (JSON.stringify(cur) !== JSON.stringify(a)) d.changed.push({ kind: "decision", id: a.id, label: `${a.id} ${a.title}`, fields: fields(cur, a) });
   }
   for (const id of patch.removeElements ?? []) if (ws.elements[id]) d.removed.push({ kind: "element", id, label: ws.elements[id].name });
   for (const id of patch.removeRelationships ?? [])
@@ -273,4 +279,18 @@ export function searchElements(ws: Workspace, query: string): Element[] {
       }
     }),
   );
+}
+
+/** What changed between two versions of a workspace (for pull-request summaries and the visual diff). */
+export function diffWorkspaces(base: Workspace, head: Workspace): PatchDiff {
+  const changed = <T extends { id: Id }>(a: Record<Id, T>, b: Record<Id, T>) => Object.values(b).filter((x) => JSON.stringify(a[x.id]) !== JSON.stringify(x));
+  const gone = (a: Record<Id, unknown>, b: Record<Id, unknown>) => Object.keys(a).filter((id) => !b[id]);
+  return diffPatch(base, {
+    elements: changed(base.elements, head.elements),
+    relationships: changed(base.relationships, head.relationships),
+    views: changed(base.views, head.views),
+    removeElements: gone(base.elements, head.elements),
+    removeRelationships: gone(base.relationships, head.relationships),
+    removeViews: gone(base.views, head.views),
+  });
 }

@@ -1,0 +1,2 @@
+[{"traceId":"z1","id":"1","kind":"SERVER","name":"get /cart","localEndpoint":{"serviceName":"cart"}},
+ {"traceId":"z1","parentId":"1","id":"2","kind":"CLIENT","name":"get","localEndpoint":{"serviceName":"cart"},"remoteEndpoint":{"serviceName":"redis"},"tags":{"db.system":"redis"}}]

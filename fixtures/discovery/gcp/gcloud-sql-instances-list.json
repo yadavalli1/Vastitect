@@ -1,0 +1,1 @@
+[{"kind":"sql#instance","name":"orders-db","databaseVersion":"POSTGRES_16","region":"europe-west1","settings":{"ipConfiguration":{"privateNetwork":"projects/shop-prod-123/global/networks/shop-vpc"}}}]

@@ -1,0 +1,3 @@
+sys_id,name,sys_class_name,os,ip_address,install_status
+srv1,lnx-web-01,cmdb_ci_linux_server,Ubuntu 22.04,10.0.1.10,Installed
+srv2,lnx-db-01,cmdb_ci_linux_server,"Red Hat Enterprise Linux 9",10.0.2.20,Installed

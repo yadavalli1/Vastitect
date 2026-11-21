@@ -1,0 +1,10 @@
+{"data":{"allFactSheets":{"totalCount":5,"edges":[
+ {"node":{"id":"a1","name":"Online Shop","type":"Application","description":"Customer storefront","lifecycle":{"asString":"active"},"businessCriticality":"missionCritical",
+   "relApplicationToITComponent":{"edges":[{"node":{"factSheet":{"id":"i1","name":"PostgreSQL 16","type":"ITComponent"}}}]},
+   "relApplicationToBusinessCapability":{"edges":[{"node":{"factSheet":{"id":"c1","name":"Order Management","type":"BusinessCapability"}}}]}}},
+ {"node":{"id":"a2","name":"Legacy Billing","type":"Application","lifecycle":{"asString":"endOfLife"}}},
+ {"node":{"id":"i1","name":"PostgreSQL 16","type":"ITComponent","lifecycle":{"asString":"phaseIn"}}},
+ {"node":{"id":"c1","name":"Order Management","type":"BusinessCapability"}},
+ {"node":{"id":"c2","name":"Order Capture","type":"BusinessCapability","relToParent":{"edges":[{"node":{"factSheet":{"id":"c1","type":"BusinessCapability"}}}]}}},
+ {"node":{"id":"x1","name":"Some Bundle","type":"CustomThing"}}
+]}}}

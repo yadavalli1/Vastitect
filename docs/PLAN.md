@@ -106,6 +106,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] ADRs: storage, linking, properties-panel display, editor with preview
 - [x] Reports to CSV, Excel, Markdown
 - [x] AWS and Git repository connectors
+- [x] ServiceNow CMDB (Table API or exports), Google Cloud and Azure connectors (read-only CLI or saved output)
 - [x] AI assistant (off by default): OpenAI-compatible endpoint, keychain storage, all changes as reviewable diffs
 - [x] Search: in-memory everywhere, SQLite FTS5 index on desktop
 - [x] Merge view for conflicting edits
@@ -115,9 +116,23 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [ ] TODO (owner): signing certificates and the updater key as repository secrets; the updater public key in tauri.conf.json
 - [ ] TODO: the release workflow has not run on GitHub's macOS and Windows runners yet; only the Linux .deb was built locally
 - [x] Accessibility: keyboard navigation between connected elements, labels on every node and control, no colour-only meaning
-- [ ] TODO: a screen-reader pass with NVDA/VoiceOver, and colour contrast checks in the dark theme
+- [ ] TODO: a manual screen-reader pass with NVDA and VoiceOver (automated WCAG checks now pass in both themes)
 - [x] Performance budget verified in tests (open 5,000 elements/200 views, 300-node layout, 300-node pan)
 - [x] CONTRIBUTING.md, code of conduct, README, published JSON Schema, message extraction
+
+## Milestone 7 — Governance, runtime truth and assistant chat
+
+- [x] Architecture rules as data in `vastitecture.yaml`; rules page; violations in the Problems panel
+- [x] `@vastitecture/cli`: check (text, JSON, GitHub annotations, Markdown), diff, export, rules init; example workflow
+- [x] Runtime-trace discovery (OpenTelemetry, Jaeger, Zipkin, Datadog) with drift report
+- [x] Assistant chat beside the canvas; ask-the-model; draft an ADR (all changes through the review dialog)
+- [x] Connectors: GitHub organisation scan, live Kubernetes (`kubectl get`), Jira / Azure DevOps, LeanIX / Ardoq / Sparx EA
+- [ ] TODO: check the LeanIX, Ardoq and Sparx mappings against real exports (built from public documentation and hand-written fixtures)
+- [x] ServiceNow write-back: names, descriptions and new dependencies, compared live, picked and confirmed
+- [x] Plateaus (as-is / to-be), cost overlay (cloud billing exports), data classification and flow, coupling metrics
+- [x] Visual model diff (Git commit or another folder), comments stored in the repository
+- [x] Vector PDF (selectable text; image PDF kept as an option); SVG and PDF export in the CLI
+- [x] Automated WCAG 2.1 AA checks (axe) on the main screens in light and dark themes, in CI
 
 ## Inputs needed from the owner
 

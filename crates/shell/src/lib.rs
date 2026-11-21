@@ -138,6 +138,51 @@ pub fn git_diff(root: &Path, rel: &str) -> Result<String> {
     Ok(git(root, &["diff", "HEAD", "--", rel]).unwrap_or_default())
 }
 
+/// A revision name a user may pick: a commit hash, branch, tag or HEAD~n. Never an option.
+fn safe_rev(rev: &str) -> bool {
+    !rev.is_empty() && rev.len() <= 80 && !rev.starts_with('-') && rev.chars().all(|c| c.is_ascii_alphanumeric() || "_./~^-".contains(c)) && !rev.contains("..")
+}
+
+fn workspace_file(p: &str) -> bool {
+    p == "vastitecture.yaml"
+        || ((p.starts_with("model/") || p.starts_with("views/") || p.starts_with("comments/")) && p.ends_with(".yaml"))
+        || (p.starts_with("adrs/") && p.ends_with(".md"))
+}
+
+/// The workspace's files as they were at a revision (for comparing the model with an earlier version).
+pub fn git_files_at(root: &Path, rev: &str) -> Result<std::collections::BTreeMap<String, String>> {
+    if !safe_rev(rev) {
+        return Err(format!("Not a revision name: {rev}"));
+    }
+    let list = git(root, &["ls-tree", "-r", "--name-only", rev, "--", "."]).ok_or_else(|| format!("{rev} is not a revision of this repository, or the workspace is not under Git"))?;
+    let mut out = std::collections::BTreeMap::new();
+    for p in list.lines().filter(|p| workspace_file(p)) {
+        if let Some(text) = git(root, &["show", &format!("{rev}:./{p}")]) {
+            out.insert(p.to_string(), text);
+        }
+    }
+    Ok(out)
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+pub struct GitCommit {
+    pub hash: String,
+    pub subject: String,
+    pub date: String,
+}
+
+/// Recent commits that touched the workspace.
+pub fn git_log(root: &Path, limit: usize) -> Vec<GitCommit> {
+    git(root, &["log", &format!("-n{}", limit.min(200)), "--format=%h%x1f%s%x1f%cs", "--", "."])
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| {
+            let mut p = l.split('\x1f');
+            Some(GitCommit { hash: p.next()?.to_string(), subject: p.next()?.to_string(), date: p.next()?.to_string() })
+        })
+        .collect()
+}
+
 #[derive(Serialize, Debug, PartialEq)]
 pub struct SearchHit {
     pub path: String,
@@ -281,6 +326,31 @@ mod tests {
     }
 
     #[test]
+    fn git_files_at_reads_a_committed_workspace_and_refuses_options() {
+        let dir = std::env::temp_dir().join(format!("vast-git-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("ws/model/elements/c4/container")).unwrap();
+        let run = |args: &[&str]| assert!(Command::new("git").arg("-C").arg(&dir).args(args).output().unwrap().status.success(), "git {args:?}");
+        run(&["init", "-q"]);
+        run(&["config", "user.email", "t@example.com"]);
+        run(&["config", "user.name", "t"]);
+        fs::write(dir.join("ws/vastitecture.yaml"), "format: 1\nname: A\n").unwrap();
+        fs::write(dir.join("ws/model/elements/c4/container/api.yaml"), "id: x\n").unwrap();
+        fs::write(dir.join("ws/notes.txt"), "not part of the model").unwrap();
+        run(&["add", "."]);
+        run(&["commit", "-qm", "first"]);
+        fs::write(dir.join("ws/vastitecture.yaml"), "format: 1\nname: B\n").unwrap();
+        let ws = dir.join("ws");
+        let files = git_files_at(&ws, "HEAD").unwrap();
+        assert_eq!(files.keys().collect::<Vec<_>>(), vec!["model/elements/c4/container/api.yaml", "vastitecture.yaml"]);
+        assert_eq!(files["vastitecture.yaml"], "format: 1\nname: A\n");
+        assert!(git_files_at(&ws, "--output=/tmp/x").is_err());
+        assert!(git_files_at(&ws, "HEAD..main").is_err());
+        assert_eq!(git_log(&ws, 5).iter().map(|c| c.subject.as_str()).collect::<Vec<_>>(), vec!["first"]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn git_status_reports_changes_or_no_repo() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
@@ -392,5 +462,123 @@ mod aws_tests {
         assert!(!aws_read_only("ec2", "describe-instances --dry-run"));
         assert!(!aws_read_only("ec2;rm", "describe-x"));
         assert!(aws_cli("ec2", "run-instances", None, None).is_err());
+    }
+}
+
+/// Open a directory in the platform's file manager (Finder, Explorer, or the desktop's default).
+pub fn reveal_folder(path: &Path) -> Result<()> {
+    if !path.is_dir() {
+        return Err(format!("{} is not a folder", path.display()));
+    }
+    let program = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "windows") {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    Command::new(program).arg(path).spawn().map(|_| ()).map_err(|e| format!("Could not open the folder: {e}"))
+}
+
+/// Read-only cloud CLI calls for discovery. Only listing and describing verbs are accepted, flags come
+/// from a short allow-list, and every value is restricted to a safe character set, so no plugin or
+/// connector can make the user's cloud login change anything.
+pub fn cloud_read_only(tool: &str, args: &[String]) -> Result<()> {
+    let word = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    // kubectl takes a comma-separated resource list: `get deployments,services`.
+    let resources = |s: &str| !s.is_empty() && s.len() <= 200 && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == ',' || c == '.');
+    if tool == "kubectl" {
+        return if args.len() == 2 && args[0] == "get" && resources(&args[1]) && !args[1].split(',').any(|r| r.starts_with("secret")) {
+            Ok(())
+        } else {
+            Err(format!("Refusing kubectl {}: only `kubectl get <resources>` (never secrets) is allowed", args.join(" ")))
+        };
+    }
+    if args.is_empty() || args.len() > 6 || !args.iter().all(|a| word(a)) {
+        return Err(format!("Refusing {tool} command: arguments must be plain lowercase words"));
+    }
+    let verb = args.last().unwrap().as_str();
+    let ok = match tool {
+        "aws" => args.len() == 2 && (verb.starts_with("describe-") || verb.starts_with("list-") || (args[0] == "sts" && verb == "get-caller-identity")),
+        "gcloud" => matches!(verb, "list" | "describe") || args == ["config", "get-value", "project"],
+        "az" => matches!(verb, "list" | "show"),
+        _ => return Err(format!("Unknown cloud CLI {tool}")),
+    };
+    if ok { Ok(()) } else { Err(format!("Refusing {tool} {}: only read-only list/describe/show commands are allowed", args.join(" "))) }
+}
+
+/// Run one read-only cloud CLI command with the user's own login and return its JSON output.
+/// `flags` are (name, value) pairs such as ("--profile", "dev"); names must be on the tool's allow-list.
+pub fn cloud_cli(tool: &str, args: &[String], flags: &[(String, String)]) -> Result<String> {
+    cloud_read_only(tool, args)?;
+    let allowed: &[&str] = match tool {
+        "aws" => &["--profile", "--region"],
+        "gcloud" => &["--project"],
+        "az" => &["--subscription"],
+        "kubectl" => &["--context", "--namespace"],
+        _ => &[],
+    };
+    let safe = |s: &str| !s.is_empty() && s.len() <= 128 && s.chars().all(|c| c.is_ascii_alphanumeric() || " -_.".contains(c));
+    let mut cmd = Command::new(if cfg!(windows) && (tool == "gcloud" || tool == "az") { format!("{tool}.cmd") } else { tool.to_string() });
+    cmd.args(args);
+    match tool {
+        "aws" => cmd.args(["--output", "json", "--no-cli-pager"]),
+        "gcloud" => cmd.args(["--format=json", "--quiet"]),
+        "kubectl" => {
+            if !flags.iter().any(|(n, v)| n == "--namespace" && !v.is_empty()) {
+                cmd.arg("--all-namespaces");
+            }
+            cmd.args(["-o", "json", "--request-timeout=20s"])
+        }
+        _ => cmd.args(["-o", "json", "--only-show-errors"]),
+    };
+    for (name, value) in flags {
+        if value.is_empty() {
+            continue;
+        }
+        if !allowed.contains(&name.as_str()) || !safe(value) {
+            return Err(format!("Refusing flag {name} for {tool}"));
+        }
+        cmd.args([name.as_str(), value.as_str()]);
+    }
+    let out = cmd.output().map_err(|e| format!("Could not run {tool} ({e}). Is it installed, on PATH, and signed in?"))?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}
+
+#[cfg(test)]
+mod cloud_tests {
+    use super::*;
+    fn a(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn kubectl_may_only_get_non_secret_resources() {
+        assert!(cloud_read_only("kubectl", &a(&["get", "deployments,statefulsets,services,ingresses.networking.k8s.io"])).is_ok());
+        assert!(cloud_read_only("kubectl", &a(&["get", "secrets"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["get", "pods,secret"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["delete", "pods"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["get", "pods", "--kubeconfig=/x"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["get", "pods;rm"])).is_err());
+    }
+
+    #[test]
+    fn only_read_only_cloud_commands_are_allowed() {
+        assert!(cloud_read_only("gcloud", &a(&["compute", "instances", "list"])).is_ok());
+        assert!(cloud_read_only("gcloud", &a(&["config", "get-value", "project"])).is_ok());
+        assert!(cloud_read_only("az", &a(&["network", "vnet", "list"])).is_ok());
+        assert!(cloud_read_only("az", &a(&["account", "show"])).is_ok());
+        assert!(cloud_read_only("aws", &a(&["ec2", "describe-vpcs"])).is_ok());
+        assert!(cloud_read_only("gcloud", &a(&["compute", "instances", "delete"])).is_err());
+        assert!(cloud_read_only("gcloud", &a(&["config", "set", "project"])).is_err());
+        assert!(cloud_read_only("az", &a(&["vm", "delete"])).is_err());
+        assert!(cloud_read_only("az", &a(&["group", "list;rm"])).is_err());
+        assert!(cloud_read_only("az", &a(&["vm", "list", "--query"])).is_err());
+        assert!(cloud_read_only("terraform", &a(&["show"])).is_err());
+        assert!(cloud_cli("az", &a(&["vm", "list"]), &[("--resource-group".into(), "x".into())]).is_err());
+        assert!(cloud_cli("gcloud", &a(&["compute", "instances", "list"]), &[("--project".into(), "a;b".into())]).is_err());
     }
 }

@@ -1,0 +1,4 @@
+{"values":[
+ {"_id":"r-1","source":"c-1","target":"c-2","displayText":"Supports"},
+ {"_id":"r-2","source":"c-1","target":"c-3","displayText":"Depends on"}
+]}

@@ -81,6 +81,16 @@ fn git_diff(root: String, path: String) -> Result<String, String> {
     shell::git_diff(Path::new(&root), &path)
 }
 
+#[tauri::command]
+async fn git_files_at(root: String, rev: String) -> Result<std::collections::BTreeMap<String, String>, String> {
+    shell::git_files_at(Path::new(&root), &rev)
+}
+
+#[tauri::command]
+fn git_log(root: String) -> Vec<shell::GitCommit> {
+    shell::git_log(Path::new(&root), 30)
+}
+
 /// Full-text search over the workspace files. The index is a cache under .vastitecture/cache.
 #[tauri::command]
 fn search(state: State<AppState>, root: String, query: String) -> Result<Vec<shell::SearchHit>, String> {
@@ -162,10 +172,15 @@ fn plugin_read(dir: String, file: String) -> Result<String, String> {
     shell::read_plugin_file(Path::new(&dir), &file)
 }
 
-/// Read-only AWS discovery through the user's own AWS CLI and local profile.
 #[tauri::command]
-async fn aws_cli(service: String, operation: String, profile: Option<String>, region: Option<String>) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || shell::aws_cli(&service, &operation, profile.as_deref(), region.as_deref()))
+fn reveal_folder(path: String) -> Result<(), String> {
+    shell::reveal_folder(Path::new(&path))
+}
+
+/// Read-only cloud discovery through the user's own aws, gcloud or az CLI and local login.
+#[tauri::command]
+async fn cloud_cli(tool: String, args: Vec<String>, flags: Vec<(String, String)>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || shell::cloud_cli(&tool, &args, &flags))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -188,6 +203,8 @@ pub fn run() {
             ws_watch,
             ws_unwatch,
             write_binary,
+            git_files_at,
+            git_log,
             git_status,
             git_diff,
             search,
@@ -196,7 +213,8 @@ pub fn run() {
             http_fetch,
             plugins_list,
             plugin_read,
-            aws_cli
+            cloud_cli,
+            reveal_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vastitecture");

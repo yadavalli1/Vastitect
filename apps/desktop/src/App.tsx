@@ -1,3 +1,4 @@
+import { ChatPanel } from "./panels/Chat";
 import { Suspense, lazy, useEffect, useState } from "react";
 import type { Id } from "@vastitecture/core";
 import { model, redo, registry, select, set, setTheme, undo, useApp, useModel, useRegistryVersion } from "./state";
@@ -87,7 +88,7 @@ function Toolbar({ problemCount }: { problemCount: number }) {
   const saveLabel = { saved: t("Saved"), dirty: t("Unsaved changes"), saving: t("Saving…"), error: t("Save failed") }[s.saveState];
   return (
     <header className="panel chrome flex items-center gap-1 border-b" style={{ padding: "5px 8px", flexWrap: "wrap" }} role="toolbar" aria-label={t("Main toolbar")}>
-      <button className="btn ghost" onClick={() => set({ newOpen: true })} title={s.fsLabel}><strong>{t("Vastitecture")}</strong> · {name}</button>
+      <button className="btn ghost" onClick={() => set({ newOpen: true })} title={s.fsLabel.startsWith("browser:") ? t("Kept inside the app") : s.fsLabel}><strong>{t("Vastitecture")}</strong> · {name}{!s.fsLabel.startsWith("browser:") && s.fsLabel ? " 📁" : ""}</button>
       <span className="muted" data-testid="save-state" style={{ fontSize: 11, minWidth: 70 }}>{saveLabel}</span>
       <button className="btn" onClick={undo} disabled={!model.canUndo} aria-label={t("Undo")} title={t("Undo")}>↶</button>
       <button className="btn" onClick={redo} disabled={!model.canRedo} aria-label={t("Redo")} title={t("Redo")}>↷</button>
@@ -126,6 +127,7 @@ function Toolbar({ problemCount }: { problemCount: number }) {
       <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("vastitecture:paste-import"))}>{t("Paste")}</button>
       <span style={{ flex: 1 }} />
       <button className={`btn${s.problemsOpen ? " on" : ""}`} aria-pressed={s.problemsOpen} onClick={() => set({ problemsOpen: !s.problemsOpen })}>{t("Problems")} ({problemCount})</button>
+      <button className={`btn${s.chatOpen ? " on" : ""}`} aria-pressed={s.chatOpen} onClick={() => set({ chatOpen: !s.chatOpen })} title={t("Ask the assistant about the model, or ask it to change something")}>✦ {t("Chat")}</button>
       <button className="btn" onClick={() => set({ presenting: true })}>{t("Present")}</button>
       <button className="btn" onClick={() => setTheme(s.theme === "dark" ? "light" : "dark")} aria-label={t("Toggle theme")}>{s.theme === "dark" ? "☀" : "☾"}</button>
       <button className="btn" onClick={() => set({ searchOpen: true })} aria-label={t("Search")} title={t("Search (Ctrl+P)")}>🔎</button>
@@ -201,7 +203,7 @@ export function App() {
               </div>
               {s.problemsOpen && !s.presenting && <Problems problems={problems} />}
             </main>
-            {!s.presenting && <Properties />}
+            {!s.presenting && (s.chatOpen ? <ChatPanel /> : <Properties />)}
           </>
         )}
       </div>

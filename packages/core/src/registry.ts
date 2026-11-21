@@ -183,17 +183,54 @@ export interface Exporter {
 export interface ConnectorField {
   key: string;
   label: string;
-  type: "string" | "files";
+  /**
+   * "secret": typed by the user, stored in the OS keychain under `secret` and read by the connector
+   * through ctx.secrets.get. It is never passed in the config.
+   */
+  type: "string" | "files" | "secret";
   placeholder?: string;
+  /** Keychain name for a "secret" field. Must be listed in the plugin's permissions.secrets. */
+  secret?: string;
+  /** A "files" field the connector can do without (e.g. when it can call an API instead). */
+  optional?: boolean;
 }
 
-/** Read-only discovery: returns a draft patch the user reviews as a diff. */
+/**
+ * Read-only cloud CLI calls the desktop app may run for a connector with the user's own login.
+ * The native shell only accepts list/describe/show verbs, whatever a plugin asks for.
+ */
+export interface ConnectorCli {
+  tool: "aws" | "gcloud" | "az" | "kubectl";
+  /** Each entry is the argument list of one command, e.g. ["compute", "instances", "list"]. */
+  commands: string[][];
+  /** Config fields passed as flags, e.g. { profile: "--profile" }. */
+  flags?: Record<string, string>;
+}
+
+/** One change a connector proposes to make in the external system. The request is exactly what will be sent. */
+export interface WriteBackItem {
+  id: string;
+  kind: "update" | "create";
+  /** What changes, in words, e.g. 'Rename "shop-web" to "Shop web"'. */
+  label: string;
+  /** The value now in the external system and the value that would be written. */
+  before?: string;
+  after?: string;
+  request: { method: "PATCH" | "POST" | "PUT"; path: string; body: Record<string, unknown> };
+}
+
+/** Discovery: returns a draft patch the user reviews as a diff. Some connectors can also write back, always after review. */
 export interface Connector {
   id: string;
   label: string;
   description?: string;
   fields: ConnectorField[];
+  cli?: ConnectorCli;
   discover(input: { files: ImportInput[]; config: Record<string, string> }, ws: Workspace): Promise<ModelPatch> | ModelPatch;
+  /** Compare the model with the external system and list what writing back would change. Never writes. */
+  planWriteBack?(input: { config: Record<string, string> }, ws: Workspace): Promise<{ items: WriteBackItem[]; report: string[] }>;
+  /** Send the reviewed items, one by one. Returns one result line per item. */
+  applyWriteBack?(input: { config: Record<string, string> }, items: WriteBackItem[]): Promise<string[]>;
 }
 
 export interface LayoutGraph {

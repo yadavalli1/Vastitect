@@ -1,0 +1,1 @@
+[{"name":"prod-gke","location":"europe-west1","currentMasterVersion":"1.30.5-gke.1014001","network":"shop-vpc","nodePools":[{"name":"default"}],"selfLink":"https://container.googleapis.com/v1/projects/shop-prod-123/locations/europe-west1/clusters/prod-gke"}]

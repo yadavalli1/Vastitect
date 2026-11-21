@@ -1,0 +1,1 @@
+[{"kind":"compute#network","name":"shop-vpc","selfLink":"https://www.googleapis.com/compute/v1/projects/shop-prod-123/global/networks/shop-vpc"}]

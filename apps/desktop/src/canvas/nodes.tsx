@@ -49,7 +49,7 @@ export const ShapeNode = memo(function ShapeNode({ id, data, selected, width, he
   const el = useModel((ws) => ws.elements[id]);
   const mappings = useModel((ws) => ws.mappings);
   const renaming = useApp((s) => s.renaming === id);
-  const { highlight } = useContext(CanvasContext);
+  const { highlight, overlay } = useContext(CanvasContext);
   const connecting = useConnection((c) => c.inProgress);
   if (!el) return null;
   const w = width ?? 150;
@@ -65,7 +65,7 @@ export const ShapeNode = memo(function ShapeNode({ id, data, selected, width, he
   const dim = highlight && !highlight.has(id);
   const label = `${def?.name ?? el.type}: ${el.name}`;
   return (
-    <div className={`vnode${dim ? " dim" : ""}`} role="group" aria-label={label} title={el.description || label} data-element={id} data-type={type}>
+    <div className={`vnode${dim ? " dim" : ""}${overlay?.elements[id] ? ` tone-${overlay.elements[id].tone}` : ""}`} role="group" aria-label={label} title={el.description || label} data-element={id} data-type={type}>
       <NodeResizer
         isVisible={!!selected}
         minWidth={40}
@@ -107,6 +107,7 @@ export const ShapeNode = memo(function ShapeNode({ id, data, selected, width, he
           </>
         )}
       </div>
+      {overlay?.elements[id]?.badge && <span className={`vnode-mark tone-${overlay.elements[id].tone}`}>{overlay.elements[id].badge}</span>}
       {def?.icon && !def.icon.startsWith("path:") && <span className="vnode-icon" style={{ color: fill ? "#0f172a" : undefined }}>{def.icon}</span>}
       {(data.hasKids || data.canExpand) && (
         <button

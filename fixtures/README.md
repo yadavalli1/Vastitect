@@ -18,3 +18,15 @@ samples do not exercise. They are not copies of third-party material.
 
 No published docker-compose, Kubernetes, Helm, Terraform or AsyncAPI sample was reachable from the
 build environment, so `discovery/` holds files written for this project in those formats.
+
+`discovery/servicenow/`, `discovery/gcp/` and `discovery/azure/` were also written for this project. They
+follow the shape of ServiceNow Table API responses (including `sysparm_display_value=all` objects and a list
+CSV export), `gcloud … --format=json` and `az … -o json` output, with invented names and ids.
+
+`discovery/traces/` was written for this project in the OTLP JSON, Jaeger, Zipkin v2 and Datadog service
+dependency formats, with invented service names.
+
+`discovery/github/`, `discovery/workitems/` and `discovery/enterprise/` were written for this project from the
+public documentation of `gh repo list --json`, the GitHub REST API, Jira and Azure DevOps exports and APIs,
+LeanIX GraphQL, Ardoq's REST API and UML 2 XMI. They have not been compared with real exports from those
+products yet.

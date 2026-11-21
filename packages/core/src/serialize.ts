@@ -5,6 +5,7 @@ import { load, JSON_SCHEMA } from "js-yaml";
 const parse = (text: string): unknown => load(text, { schema: JSON_SCHEMA });
 import {
   AdrSchema,
+  CommentSchema,
   ElementSchema,
   RelationshipSchema,
   SettingsSchema,
@@ -166,8 +167,10 @@ export function toFiles(ws: Workspace, index: PathIndex = {}): { files: FileMap;
       mappings: ws.mappings.map((m) => ordered({ ...m, members: sortKeys(m.members) }, ["concept", "label", "members"])),
       pluginSettings: sortKeys(ws.pluginSettings),
       savedFilters: ws.savedFilters,
+      // written only when present, so workspaces without rules keep byte-identical files
+      ...(ws.rules?.length ? { rules: ws.rules } : {}),
     },
-    ["format", "name", "packs", "mappings", "pluginSettings", "savedFilters"],
+    ["format", "name", "packs", "mappings", "pluginSettings", "savedFilters", "rules"],
   );
   files[SETTINGS_FILE] = toYaml(settings);
 
@@ -192,6 +195,8 @@ export function toFiles(ws: Workspace, index: PathIndex = {}): { files: FileMap;
 
   for (const v of known(Object.values(ws.views))) files[place(v.id, `views/${v.notation}/`, v.name, ".yaml")] = toYaml(viewDoc(v));
   for (const a of known(Object.values(ws.adrs))) files[place("adr:" + a.id, "adrs/", `${a.id}-${a.title}`, ".md")] = adrToMarkdown(a);
+  for (const c of Object.values(ws.comments ?? {}))
+    files[`comments/${slugify(c.id)}.yaml`] = toYaml(ordered({ ...c }, ["id", "target", "replyTo", "author", "date", "resolved", "text"]));
 
   return { files, index: next };
 }
@@ -235,6 +240,9 @@ export function fromFiles(files: FileMap): { workspace: Workspace; index: PathIn
         ws.views[v.id] = v;
         index[v.id] = path;
       }
+    } else if (path.startsWith("comments/") && path.endsWith(".yaml")) {
+      const c = read(path, (d) => CommentSchema.parse(d));
+      if (c) (ws.comments ??= {})[c.id] = c;
     } else if (path.startsWith("adrs/") && path.endsWith(".md")) {
       const a = read(path, () => adrFromMarkdown(files[path], path), true);
       if (a) {
@@ -248,4 +256,4 @@ export function fromFiles(files: FileMap): { workspace: Workspace; index: PathIn
 
 /** True for paths that belong to the workspace format (others are ignored by the watcher). */
 export const isWorkspacePath = (p: string) =>
-  p === SETTINGS_FILE || p === RELATIONSHIPS_FILE || /^(model\/elements|views)\/.+\.yaml$/.test(p) || /^adrs\/.+\.md$/.test(p);
+  p === SETTINGS_FILE || p === RELATIONSHIPS_FILE || /^(model\/elements|views)\/.+\.yaml$/.test(p) || /^adrs\/.+\.md$/.test(p) || /^comments\/.+\.yaml$/.test(p);
