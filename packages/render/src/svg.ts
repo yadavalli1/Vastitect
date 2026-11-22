@@ -3,6 +3,12 @@ import { dashArray, edgePoints, markerGeom, midPoint, pointsToPath, shapeGeom, w
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+/** A colour value safe to place in an attribute: hex, a CSS colour name, rgb()/rgba()/hsl() or none. Anything else is replaced. */
+export const safeColor = (v: unknown, fallback: string) => {
+  const s = String(v ?? "").trim();
+  return /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{1,30}|(rgb|rgba|hsl|hsla)\([0-9\s.,%]{1,60}\))$/.test(s) ? s : fallback;
+};
+
 export interface SvgTheme {
   background: string;
   stroke: string;
@@ -76,7 +82,8 @@ export function viewToSvg(ws: Workspace, view: View, reg: Registry, theme: SvgTh
     grow(r);
     const look = resolveLook(def, el.properties);
     const g = shapeGeom(look.shape, r.w, r.h);
-    const fill = String(n.style?.fill ?? look.fill ?? theme.fill);
+    // The fill comes from workspace or imported view styles: only a plain colour reaches the attribute.
+    const fill = safeColor(n.style?.fill ?? look.fill ?? theme.fill, theme.fill);
     const dark = look.fill || n.style?.fill ? "#0f172a" : theme.text;
     body.push(`<g transform="translate(${r.x} ${r.y})" role="img" aria-label="${esc(`${def?.name ?? el.type}: ${el.name}`)}">`);
     for (const p of g.parts) {

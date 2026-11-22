@@ -5,7 +5,7 @@ import { phaseLabel } from "../panels/Properties";
 import { TableExport } from "./Reports";
 import { t } from "../i18n";
 import { Table2 } from "lucide-react";
-import { PageHeader } from "../ui";
+import { PageHeader, safeHref } from "../ui";
 
 const BUILTIN = ["name", "type", "owner", "lifecycle", "tags"] as const;
 
@@ -147,7 +147,7 @@ export function FactSheetsPage() {
                   <td key={d.key} style={{ minWidth: d.type === "number" ? 110 : 150 }}><Cell label={t("{field} of {name}", { field: d.label, name: e.name })} def={d} value={String(e.properties[d.key] ?? "")} onCommit={(v) => setProp(e, d.key, v, d)} /></td>
                 ))}
                 <td><Cell label={t("Tags of {name}", { name: e.name })} value={e.tags.join(", ")} onCommit={(v) => up(e, { tags: v.split(",").map((x) => x.trim()).filter(Boolean) })} /></td>
-                <td>{e.links.map((l, i) => <a key={i} href={l.href} target="_blank" rel="noreferrer" className="badge accent" style={{ marginRight: 4 }}>{l.kind}</a>)}</td>
+                <td>{e.links.map((l, i) => <a key={i} href={safeHref(l.href)} target="_blank" rel="noreferrer" className="badge accent" style={{ marginRight: 4 }}>{l.kind}</a>)}</td>
               </tr>
             ))}
           </tbody>

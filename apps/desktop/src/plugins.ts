@@ -50,11 +50,25 @@ export interface PluginSource {
 
 const APPROVED = "vastitecture/plugins/approved";
 const INSTALLED = "vastitecture/plugins/installed";
-/** Approval covers one exact set of capabilities and permissions: a plugin asking for more must be approved again. */
-export const approvalKey = (m: PluginManifest) => `${m.id}|${[...m.capabilities].sort().join(",")}|${JSON.stringify(m.permissions ?? {})}`;
-const approved = (): string[] => JSON.parse(localStorage.getItem(APPROVED) ?? "[]");
-export const isApproved = (m: PluginManifest) => approved().includes(approvalKey(m));
-export const approve = (m: PluginManifest) => localStorage.setItem(APPROVED, JSON.stringify([...new Set([...approved(), approvalKey(m)])]));
+/**
+ * Approval covers one exact plugin: its id, capabilities and permissions, where it came from, and a hash
+ * of its code. A plugin asking for more, a changed plugin, or a same-named plugin shipped in a workspace
+ * must be approved again.
+ */
+export async function approvalKey(m: PluginManifest, origin: string, code: string) {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code)));
+  const hash = [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const sortKeys = (v: unknown): unknown => (Array.isArray(v) ? v.map(sortKeys) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)).map(([k, x]) => [k, sortKeys(x)])) : v);
+  return `${m.id}|${[...m.capabilities].sort().join(",")}|${JSON.stringify(sortKeys(m.permissions ?? {}))}|${origin}|${hash}`;
+}
+const approved = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(APPROVED) ?? "[]");
+  } catch {
+    return [];
+  }
+};
+const remember = (key: string) => localStorage.setItem(APPROVED, JSON.stringify([...new Set([...approved(), key])]));
 
 export type Approver = (manifest: PluginManifest, origin: string) => Promise<boolean>;
 let approver: Approver = async () => false;
@@ -73,9 +87,10 @@ export function unloadPlugin(id: string) {
 export async function loadPlugin(src: PluginSource): Promise<HostedPlugin> {
   const manifest = parseManifest(src.manifestJson);
   if (loaded.get(manifest.id)?.origin === "builtin") throw new Error(`"${manifest.id}" is the id of a built-in plugin`);
-  if (!isApproved(manifest)) {
+  const key = await approvalKey(manifest, src.origin, src.code);
+  if (!approved().includes(key)) {
     if (!(await approver(manifest, src.origin))) throw new Error(`Plugin ${manifest.id} was not approved`);
-    approve(manifest);
+    remember(key);
   }
   unloadPlugin(manifest.id);
   const blob = (text: string) => URL.createObjectURL(new Blob([text], { type: "text/javascript" }));

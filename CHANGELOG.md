@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Security
+A full security review (cloudflare/security-audit-skill, standard profile) of 0.2.0 found 18 issues, all now fixed.
+The theme: content or code from someone else (a shared workspace, an imported file, a plugin) could reach further than intended.
+- **Plugins:** approval now covers the exact code and where it came from, so a workspace can no longer reuse an approval
+  you gave another plugin. A plugin's network allow-list now also applies to redirects and cannot be bypassed through
+  request options, panel images or theme styles. A plugin can no longer replace a built-in connector or exporter.
+- **Workspace files:** symbolic links are never followed, so a workspace cannot make saves edit or delete files
+  outside it. The search index moved to the app's cache folder. `git` runs with settings that stop a repository's
+  own configuration from starting programs.
+- **Cloud discovery:** the read-only check for `gcloud` and `az` now looks at the whole command, not its last word.
+- **Exports:** text from the model can no longer become markup, script or commands in another tool: static HTML site,
+  SVG, draw.io, CSV (formulas), C4-PlantUML, Mermaid and Structurizr DSL. Zip archives refuse unsafe file names.
+- **Release workflow:** pull-request builds run only when the label is added and never receive signing secrets.
+- Element links open only web and mail addresses; the CLI's GitHub annotations escape workspace text.
+
 ## 0.2.0
 
 ### Governance

@@ -227,7 +227,7 @@ links:
 
 **Loading and watching.** `WorkspaceFS` is an interface (`read`, `write`, `list`, `watch`, `stat`) with a Tauri implementation and an in-memory implementation. Autosave debounces at 500 ms and writes only changed files, atomically (temp file + rename). Each write records a content hash so the watcher ignores our own echoes. An outside change (editor, `git pull`) is parsed and applied as a `reload` command. If the same entity has unsaved local edits, the app opens a three-way merge view (base = last loaded, ours = memory, theirs = disk). Files containing Git conflict markers are detected on load and routed to the same merge view.
 
-**Search index.** SQLite FTS5 under `.vastitecture/cache/`, built by the Rust side from the files, keyed by content hash. Deleting it is always safe.
+**Search index.** SQLite FTS5 in the app's own cache folder (one file per workspace, named by a hash of its path), built by the Rust side from the files, keyed by content hash. It is never stored in the workspace, so a workspace cannot ship a prepared index or redirect it with a link. Deleting it is always safe.
 
 **Schema versioning.** `format: 1` in `vastitecture.yaml`. Migrations are pure functions `vN → vN+1` in core, run on load, written back only on the next save.
 

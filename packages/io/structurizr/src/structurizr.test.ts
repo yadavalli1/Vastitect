@@ -151,3 +151,18 @@ describe("Structurizr workspace JSON", () => {
     expect(JSON.parse(json).model.deploymentNodes[0].environment).toBe("Live");
   });
 });
+
+describe("DSL export keeps model text inert", () => {
+  it("no name or view property can start a new DSL statement", () => {
+    const ws = { ...emptyWorkspace("W"), mappings: DEFAULT_MAPPINGS };
+    const c = makeElement("c4:Container", "x\n!include /etc/passwd\n//");
+    const s = makeElement("c4:SoftwareSystem", "a\r!script groovy");
+    ws.elements[c.id] = c;
+    ws.elements[s.id] = s;
+    ws.views.v = { id: "v", name: "V", notation: "c4", viewpoint: "c4:landscape", nodes: [{ element: s.id, x: 0, y: 0, w: 1, h: 1 }], edges: [], annotations: [], properties: { autoLayout: "lr\n!include /etc/passwd" } } as never;
+    const dsl = writeDsl(ws, { typeOf: c4TypeOf(ws) });
+    expect(dsl).not.toMatch(/^\s*!(include|script)/m);
+    expect(dsl).not.toContain("\r");
+  });
+});
+

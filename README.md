@@ -43,8 +43,7 @@ my-workspace/
   model/relationships.yaml              every relationship, sorted
   views/<notation>/<slug>.yaml          placements and routes only
   adrs/0001-<title>.md                  decisions, Markdown with front matter
-  .vastitecture/plugins/                workspace plugins (commit them)
-  .vastitecture/cache/                  search index (add to .gitignore)
+  .vastitecture/plugins/                workspace plugins (commit them; each needs your approval)
 ```
 
 JSON Schemas for these files are in [`packages/schema`](packages/schema).

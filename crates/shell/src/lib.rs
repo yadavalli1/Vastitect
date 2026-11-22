@@ -25,11 +25,22 @@ pub fn is_workspace_path(rel: &str) -> bool {
         || (rel.starts_with("comments/") && rel.ends_with(".yaml"))
 }
 
-/// Resolve a workspace-relative path, refusing anything that escapes the root.
+/// Resolve a workspace-relative path, refusing anything that escapes the root: absolute paths, `..`,
+/// and symbolic links anywhere below the root (a workspace may come from someone else's repository,
+/// and a committed link such as `adrs -> ..` would otherwise let saves reach files outside it).
 pub fn resolve(root: &Path, rel: &str) -> Result<PathBuf> {
     let p = Path::new(rel);
-    if p.is_absolute() || p.components().any(|c| !matches!(c, Component::Normal(_))) {
+    if rel.is_empty() || p.is_absolute() || p.components().any(|c| !matches!(c, Component::Normal(_))) {
         return Err(format!("Refusing path outside the workspace: {rel}"));
+    }
+    let mut cur = root.to_path_buf();
+    for c in p.components() {
+        cur.push(c);
+        match fs::symlink_metadata(&cur) {
+            Ok(m) if m.file_type().is_symlink() => return Err(format!("Refusing path through a symbolic link: {rel}")),
+            Ok(_) => {}
+            Err(_) => break, // the rest does not exist yet, so it cannot be a link
+        }
     }
     Ok(root.join(p))
 }
@@ -46,8 +57,11 @@ fn walk(dir: &Path, prefix: &str, out: &mut BTreeMap<String, String>) -> Result<
             continue;
         }
         let rel = format!("{prefix}{name}");
+        // file_type() does not follow links: symbolic links are skipped, so nothing outside the root is read.
         let ty = entry.file_type().map_err(err)?;
-        if ty.is_dir() {
+        if ty.is_symlink() {
+            continue;
+        } else if ty.is_dir() {
             walk(&entry.path(), &format!("{rel}/"), out)?;
         } else if is_workspace_path(&rel) {
             out.insert(rel, fs::read_to_string(entry.path()).map_err(err)?);
@@ -60,11 +74,14 @@ fn walk(dir: &Path, prefix: &str, out: &mut BTreeMap<String, String>) -> Result<
 pub fn read_all(root: &Path) -> Result<BTreeMap<String, String>> {
     let mut out = BTreeMap::new();
     let settings = root.join("vastitecture.yaml");
-    if settings.is_file() {
+    if fs::symlink_metadata(&settings).map(|m| m.is_file()).unwrap_or(false) {
         out.insert("vastitecture.yaml".into(), fs::read_to_string(settings).map_err(err)?);
     }
     for dir in ["model", "views", "adrs", "comments"] {
-        walk(&root.join(dir), &format!("{dir}/"), &mut out)?;
+        let path = root.join(dir);
+        if fs::symlink_metadata(&path).map(|m| m.is_dir()).unwrap_or(false) {
+            walk(&path, &format!("{dir}/"), &mut out)?;
+        }
     }
     Ok(out)
 }
@@ -112,8 +129,29 @@ pub struct GitInfo {
     pub files: Vec<GitFile>,
 }
 
+/// Settings a repository's own `.git/config` could use to run a program. The workspace may come from
+/// someone else (an archive with its `.git` folder), so these are overridden on every call.
+const GIT_SAFE: [&str; 16] = [
+    "-c", "core.fsmonitor=false",
+    "-c", "core.hooksPath=",
+    "-c", "log.showSignature=false",
+    "-c", "gpg.program=false",
+    "-c", "diff.external=",
+    "-c", "core.pager=cat",
+    "-c", "protocol.allow=never",
+    "-c", "core.sshCommand=false",
+];
+
 fn git(root: &Path, args: &[&str]) -> Option<String> {
-    let out = Command::new("git").arg("-C").arg(root).args(args).output().ok()?;
+    let out = Command::new("git")
+        .args(GIT_SAFE)
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env_remove("GIT_EXTERNAL_DIFF")
+        .output()
+        .ok()?;
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).to_string())
 }
 
@@ -136,7 +174,7 @@ pub fn git_status(root: &Path) -> GitInfo {
 /// Unified diff of one workspace file against HEAD.
 pub fn git_diff(root: &Path, rel: &str) -> Result<String> {
     resolve(root, rel)?;
-    Ok(git(root, &["diff", "HEAD", "--", rel]).unwrap_or_default())
+    Ok(git(root, &["diff", "--no-ext-diff", "--no-textconv", "HEAD", "--", rel]).unwrap_or_default())
 }
 
 /// A revision name a user may pick: a commit hash, branch, tag or HEAD~n. Never an option.
@@ -153,7 +191,7 @@ pub fn git_files_at(root: &Path, rev: &str) -> Result<std::collections::BTreeMap
     let list = git(root, &["ls-tree", "-r", "--name-only", rev, "--", "."]).ok_or_else(|| format!("{rev} is not a revision of this repository, or the workspace is not under Git"))?;
     let mut out = std::collections::BTreeMap::new();
     for p in list.lines().filter(|p| is_workspace_path(p)) {
-        if let Some(text) = git(root, &["show", &format!("{rev}:./{p}")]) {
+        if let Some(text) = git(root, &["show", "--no-textconv", &format!("{rev}:./{p}")]) {
             out.insert(p.to_string(), text);
         }
     }
@@ -216,7 +254,7 @@ pub struct GitCommit {
 
 /// Recent commits that touched the workspace.
 pub fn git_log(root: &Path, limit: usize) -> Vec<GitCommit> {
-    git(root, &["log", &format!("-n{}", limit.min(200)), "--format=%h%x1f%s%x1f%cs", "--", "."])
+    git(root, &["log", "--no-show-signature", &format!("-n{}", limit.min(200)), "--format=%h%x1f%s%x1f%cs", "--", "."])
         .unwrap_or_default()
         .lines()
         .filter_map(|l| {
@@ -232,6 +270,22 @@ pub struct SearchHit {
     pub snippet: String,
 }
 
+/// A stable file name for per-workspace caches: FNV-1a of the canonical path, in hex.
+pub fn path_key(root: &Path) -> String {
+    let canon = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in canon.to_string_lossy().as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    format!("{h:016x}")
+}
+
+/// True when `host` matches one of a plugin manifest's network entries: an exact name, `*`, or `*.suffix`.
+pub fn host_allowed(allowed: &[String], host: &str) -> bool {
+    allowed.iter().any(|h| h == "*" || h == host || (h.starts_with("*.") && host.ends_with(&h[1..])))
+}
+
 /// Full-text index over the workspace files. A cache: it can be deleted at any time and is rebuilt from the files.
 pub struct SearchIndex {
     conn: Connection,
@@ -244,13 +298,15 @@ impl SearchIndex {
                 if let Some(dir) = p.parent() {
                     fs::create_dir_all(dir).map_err(err)?;
                 }
-                Connection::open(p)
+                let flags = rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_CREATE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW;
+                Connection::open_with_flags(p, flags)
             }
             None => Connection::open_in_memory(),
         }
         .map_err(err)?;
         conn.execute_batch(
-            "CREATE VIRTUAL TABLE IF NOT EXISTS docs USING fts5(path UNINDEXED, body, tokenize='unicode61 remove_diacritics 2');
+            "PRAGMA trusted_schema = OFF;
+             CREATE VIRTUAL TABLE IF NOT EXISTS docs USING fts5(path UNINDEXED, body, tokenize='unicode61 remove_diacritics 2');
              CREATE TABLE IF NOT EXISTS seen(path TEXT PRIMARY KEY, hash INTEGER NOT NULL);",
         )
         .map_err(err)?;
@@ -318,6 +374,62 @@ impl SearchIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn symbolic_links_never_lead_outside_the_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(outside.join("a")).unwrap();
+        fs::write(outside.join("a/README.md"), "mine").unwrap();
+        let root = dir.path().join("ws");
+        fs::create_dir_all(root.join("model")).unwrap();
+        fs::write(root.join("vastitecture.yaml"), "name: x\n").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("adrs")).unwrap();
+        std::os::unix::fs::symlink(outside.join("a/README.md"), root.join("model/relationships.yaml")).unwrap();
+        // links are not followed when reading
+        let files = read_all(&root).unwrap();
+        assert_eq!(files.keys().collect::<Vec<_>>(), vec!["vastitecture.yaml"]);
+        // and writes or deletes through them are refused
+        assert!(write_file(&root, "adrs/a/README.md", "x").is_err());
+        assert!(remove_file(&root, "adrs/a/README.md").is_err());
+        assert!(write_file(&root, "model/relationships.yaml", "x").is_err());
+        assert_eq!(fs::read_to_string(outside.join("a/README.md")).unwrap(), "mine");
+        // ordinary paths still work
+        write_file(&root, "views/v.yaml", "id: v\n").unwrap();
+        assert!(resolve(&root, "../x").is_err() && resolve(&root, "").is_err());
+    }
+
+    #[test]
+    fn git_ignores_repository_settings_that_run_programs() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let run = |args: &[&str]| Command::new("git").arg("-C").arg(root).args(args).output().unwrap();
+        if run(&["init", "-q"]).status.code() != Some(0) {
+            return; // git not installed
+        }
+        let marker = root.join("ran");
+        let script = root.join("prog.sh");
+        fs::write(&script, format!("#!/bin/sh\ntouch '{}'\nexit 1\n", marker.display())).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let prog = script.to_string_lossy().to_string();
+        for (k, v) in [("core.fsmonitor", prog.as_str()), ("diff.external", prog.as_str()), ("log.showSignature", "true"), ("gpg.program", prog.as_str())] {
+            run(&["config", k, v]);
+        }
+        write_file(root, "vastitecture.yaml", "name: a\n").unwrap();
+        run(&["-c", "core.fsmonitor=false", "add", "vastitecture.yaml"]);
+        run(&["-c", "core.fsmonitor=false", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "one"]);
+        write_file(root, "vastitecture.yaml", "name: b\n").unwrap();
+        let _ = git_status(root);
+        let _ = git_diff(root, "vastitecture.yaml");
+        let _ = git_log(root, 5);
+        let _ = git_files_at(root, "HEAD");
+        assert!(!marker.exists(), "a repository setting ran a program");
+    }
 
     #[test]
     fn reads_only_workspace_files_and_writes_atomically() {
@@ -547,6 +659,21 @@ pub fn reveal_folder(path: &Path) -> Result<()> {
     Command::new(program).arg(path).spawn().map(|_| ()).map_err(|e| format!("Could not open the folder: {e}"))
 }
 
+/// Words that make a cloud CLI change something (as a command or a command prefix such as `create-for-rbac`).
+/// `run` is not listed: it is also the Cloud Run command group (`gcloud run services list`).
+const MUTATING: [&str; 61] = [
+    "create", "delete", "set", "unset", "update", "add", "remove", "start", "stop", "restart", "deploy", "import",
+    "export", "reset", "enable", "disable", "attach", "detach", "assign", "grant", "revoke", "apply", "patch",
+    "replace", "exec", "execute", "invoke", "move", "copy", "cp", "rm", "mv", "upload", "download", "login",
+    "logout", "activate", "purge", "rotate", "renew", "regenerate", "scale", "resize", "upgrade", "rollback",
+    "restore", "failover", "promote", "cancel", "approve", "reject", "publish", "sign", "swap", "mount", "unmount",
+    "lock", "unlock", "ssh", "connect", "register",
+];
+
+fn mutating_verb(word: &str) -> bool {
+    MUTATING.iter().any(|v| word == *v || word.starts_with(&format!("{v}-")))
+}
+
 /// Read-only cloud CLI calls for discovery. Only listing and describing verbs are accepted, flags come
 /// from a short allow-list, and every value is restricted to a safe character set, so no plugin or
 /// connector can make the user's cloud login change anything.
@@ -561,8 +688,13 @@ pub fn cloud_read_only(tool: &str, args: &[String]) -> Result<()> {
             Err(format!("Refusing kubectl {}: only `kubectl get <resources>` (never secrets) is allowed", args.join(" ")))
         };
     }
-    if args.is_empty() || args.len() > 6 || !args.iter().all(|a| word(a)) {
-        return Err(format!("Refusing {tool} command: arguments must be plain lowercase words"));
+    if args.is_empty() || args.len() > 6 || !args.iter().all(|a| word(a) && !a.starts_with('-')) {
+        return Err(format!("Refusing {tool} command: arguments must be plain lowercase words, without options"));
+    }
+    // The read verb must be the last word, and nothing before it may be a verb that changes something:
+    // otherwise `gcloud config set project list` or `az group delete show` would pass the last-word check.
+    if args[..args.len() - 1].iter().any(|a| mutating_verb(a)) {
+        return Err(format!("Refusing {tool} {}: only read-only list/describe/show commands are allowed", args.join(" ")));
     }
     let verb = args.last().unwrap().as_str();
     let ok = match tool {
@@ -645,6 +777,18 @@ mod cloud_tests {
         assert!(cloud_read_only("az", &a(&["group", "list;rm"])).is_err());
         assert!(cloud_read_only("az", &a(&["vm", "list", "--query"])).is_err());
         assert!(cloud_read_only("terraform", &a(&["show"])).is_err());
+        // the last word alone used to decide: these mutate although they end in a read verb
+        assert!(cloud_read_only("gcloud", &a(&["config", "set", "project", "list"])).is_err());
+        assert!(cloud_read_only("gcloud", &a(&["iam", "service-accounts", "create", "describe"])).is_err());
+        assert!(cloud_read_only("az", &a(&["ad", "sp", "create-for-rbac", "--name", "show"])).is_err());
+        assert!(cloud_read_only("az", &a(&["group", "delete", "--yes", "--name", "show"])).is_err());
+        assert!(cloud_read_only("az", &a(&["group", "delete", "show"])).is_err());
+        for c in [&["run", "services", "list"][..], &["sql", "instances", "list"], &["storage", "buckets", "list"], &["pubsub", "topics", "list"]] {
+            assert!(cloud_read_only("gcloud", &a(c)).is_ok(), "{c:?}");
+        }
+        for c in [&["postgres", "flexible-server", "list"][..], &["servicebus", "namespace", "list"], &["resource", "list"], &["functionapp", "list"]] {
+            assert!(cloud_read_only("az", &a(c)).is_ok(), "{c:?}");
+        }
         assert!(cloud_cli("az", &a(&["vm", "list"]), &[("--resource-group".into(), "x".into())]).is_err());
         assert!(cloud_cli("gcloud", &a(&["compute", "instances", "list"]), &[("--project".into(), "a;b".into())]).is_err());
     }

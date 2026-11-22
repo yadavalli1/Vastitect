@@ -1,3 +1,4 @@
+import { safeHref } from "../ui";
 import { useEffect, useState } from "react";
 import { LIFECYCLE_PHASES, presentationType, viewsContaining, type Element, type Id, type PropertyDef, type PropertyValue, type SidePanel } from "@vastitecture/core";
 import { dispatch, model, registry, select, set, useApp, useModel, useRegistryVersion } from "../state";
@@ -125,7 +126,7 @@ function ElementProps({ el }: { el: Element }) {
       {el.links.map((l, i) => (
         <div key={i} className="flex gap-1 items-center" style={{ marginBottom: 2 }}>
           <span className="chip">{l.kind}</span>
-          <a href={l.href} target="_blank" rel="noreferrer" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--accent)" }}>{l.label ?? l.href}</a>
+          <a href={safeHref(l.href)} target="_blank" rel="noreferrer" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--accent)" }}>{l.label ?? l.href}</a>
           <button className="btn ghost" aria-label={t("Remove link")} onClick={() => up({ links: el.links.filter((_, j) => j !== i) })}>×</button>
         </div>
       ))}
@@ -309,7 +310,11 @@ export function Properties() {
   );
 }
 
-/** A plugin's side panel: its HTML is shown in an iframe that can run no scripts and reach nothing. */
+/**
+ * A plugin's side panel: its HTML is shown in an iframe that can run no scripts, with its own policy that
+ * blocks every network load (images and styles included), so the panel cannot send the model anywhere.
+ */
+const PANEL_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:";
 function PluginPanel({ panel }: { panel: SidePanel }) {
   const ws = useModel((w) => w);
   const [html, setHtml] = useState(panel.html ?? "");
@@ -325,7 +330,7 @@ function PluginPanel({ panel }: { panel: SidePanel }) {
   return (
     <details open style={{ borderTop: "1px solid var(--border)" }} data-panel={panel.id}>
       <summary className="h" style={{ cursor: "pointer" }}>{panel.title}</summary>
-      <iframe title={panel.title} sandbox="" srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:12px system-ui,sans-serif;margin:8px}</style>${html}`} style={{ width: "100%", height: 180, border: 0, background: "#fff" }} />
+      <iframe title={panel.title} sandbox="" srcDoc={`<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${PANEL_CSP}"><style>body{font:12px system-ui,sans-serif;margin:8px}</style>${html}`} style={{ width: "100%", height: 180, border: 0, background: "#fff" }} />
     </details>
   );
 }

@@ -186,8 +186,11 @@ async function check(dir: string, opt: Record<string, string | true>, io: Io) {
   if (format === "json") io.out(JSON.stringify({ workspace: ws.name, issues, problems: problems.map((p) => ({ ...p, fixes: undefined, element: where(ws, p) })), rules: checkRules(ws).map((r) => ({ id: r.rule.id, checked: r.checked, violations: r.problems.length })) }, null, 2));
   else if (format === "github") {
     // GitHub Actions workflow commands: shown as annotations on the run and the pull request.
-    for (const i of issues) io.out(`::error file=${SETTINGS_FILE}::${i}`);
-    for (const p of problems) io.out(`::${p.severity === "info" ? "notice" : p.severity} title=${p.code}::${p.message.replace(/\r?\n/g, " ")}`);
+    // Workspace text is escaped the way @actions/core does, so it cannot end the annotation or start another command.
+    const data = (v: string) => v.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+    const prop = (v: string) => data(v).replace(/:/g, "%3A").replace(/,/g, "%2C");
+    for (const i of issues) io.out(`::error file=${SETTINGS_FILE}::${data(i)}`);
+    for (const p of problems) io.out(`::${p.severity === "info" ? "notice" : p.severity} title=${prop(p.code)}::${data(p.message)}`);
     io.out(summary);
   } else if (format === "markdown") io.out(markdownProblems(ws.name, problems, summary));
   else {

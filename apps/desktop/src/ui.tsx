@@ -179,3 +179,6 @@ export function SeverityIcon({ level, size = 15 }: { level: "error" | "warning" 
   const [Icon, color] = SEVERITY[level];
   return <Icon size={size} strokeWidth={2} style={{ color, flex: "none" }} aria-label={level} role="img" />;
 }
+
+/** A link target from workspace or imported data, limited to web and mail links: anything else (javascript:, file:, data:) becomes inert. */
+export const safeHref = (href: string) => (/^(https?:|mailto:)/i.test(href.trim()) ? href.trim() : undefined);

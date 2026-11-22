@@ -60,7 +60,7 @@ export function commands(): AppCommand[] {
       label: t("Theme: {name}", { name: th.label }),
       run: () => {
         setTheme(th.dark ? "dark" : "light");
-        for (const [k, v] of Object.entries(th.vars)) document.documentElement.style.setProperty(k, v);
+        for (const [k, v] of Object.entries(th.vars)) if (safeThemeVar(k, v)) document.documentElement.style.setProperty(k, v);
       },
     });
   if (isTauri)
@@ -103,4 +103,12 @@ export function handleShortcut(e: KeyboardEvent): boolean {
   if (!cmd) return false;
   void cmd.run();
   return true;
+}
+
+/**
+ * A plugin theme may set only CSS custom properties, to plain values: colours, lengths, numbers and font
+ * names. Nothing that loads a resource (url(), image-set(), @import) or escapes the declaration.
+ */
+export function safeThemeVar(name: string, value: unknown): boolean {
+  return /^--[a-zA-Z0-9-]{1,64}$/.test(name) && typeof value === "string" && value.length <= 200 && /^[\w\s#%.,()'"+-]*$/.test(value) && !/(url|image|image-set|cross-fade|element|paint|src)\s*\(/i.test(value);
 }

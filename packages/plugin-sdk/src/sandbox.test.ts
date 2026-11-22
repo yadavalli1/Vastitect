@@ -80,6 +80,33 @@ describe("plugin sandbox", () => {
     s.close();
   });
 
+  it("fetches exactly the checked URL and passes the allow-list down for redirects", async () => {
+    const calls: { url: string; init: unknown }[] = [];
+    const services = { fetch: async (url: string, init?: unknown) => (calls.push({ url, init }), { status: 200, headers: {}, text: "ok" }) };
+    const s = sandbox(manifest({ capabilities: ["connector"], permissions: { network: ["api.example.com"] } }), {
+      activate(ctx) {
+        ctx.connectors.register({ id: "c", label: "C", fields: [], discover: async () => ({ report: [(await ctx.net.fetch("https://api.example.com/x", { url: "http://127.0.0.1:8080/", method: "POST", body: "b", headers: { a: "1", n: 2 }, allowHosts: ["*"] })).text] }) });
+      },
+    }, services);
+    await s.host.ready("test.plugin");
+    await s.registry.connectors.get("c")!.discover({ files: [], config: {} }, emptyWorkspace());
+    expect(calls).toEqual([{ url: "https://api.example.com/x", init: { method: "POST", body: "b", headers: { a: "1" }, allowHosts: ["api.example.com"] } }]);
+    s.close();
+  });
+
+  it("refuses to let a plugin replace a component that is already registered", async () => {
+    const registered: string[] = [];
+    const s = sandbox(manifest({ capabilities: ["connector"] }), {
+      activate(ctx) {
+        ctx.connectors.register({ id: "github", label: "GitHub", fields: [], discover: () => (registered.push("plugin"), {}) });
+      },
+    });
+    s.registry.registerConnector({ id: "github", label: "Built-in GitHub", fields: [], discover: () => ({}) });
+    await expect(s.host.ready("test.plugin")).rejects.toThrow(/already registered/);
+    expect(s.registry.connectors.get("github")!.label).toBe("Built-in GitHub");
+    s.close();
+  });
+
   it("reports a plugin that throws during activation and propagates errors from calls", async () => {
     const bad = sandbox(manifest(), { activate: () => { throw new Error("boom"); } });
     await expect(bad.host.ready("test.plugin")).rejects.toThrow("boom");

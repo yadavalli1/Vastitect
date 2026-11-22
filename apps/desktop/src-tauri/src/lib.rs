@@ -96,13 +96,16 @@ fn git_log(root: String) -> Vec<shell::GitCommit> {
     shell::git_log(Path::new(&root), 30)
 }
 
-/// Full-text search over the workspace files. The index is a cache under .vastitecture/cache.
+/// Full-text search over the workspace files. The index is a cache in the app's cache folder.
 #[tauri::command]
-fn search(state: State<AppState>, root: String, query: String) -> Result<Vec<shell::SearchHit>, String> {
+fn search(app: AppHandle, state: State<AppState>, root: String, query: String) -> Result<Vec<shell::SearchHit>, String> {
     let root_path = PathBuf::from(&root);
     let mut guard = state.search.lock().unwrap();
     if guard.as_ref().map(|(r, _)| r != &root_path).unwrap_or(true) {
-        let db = root_path.join(".vastitecture").join("cache").join("search.sqlite");
+        // The index lives in the app's own cache folder, keyed by the workspace path, so a workspace
+        // cannot ship a prepared database or point the index somewhere else with a link.
+        let dir = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("search");
+        let db = dir.join(format!("{}.sqlite", shell::path_key(&root_path)));
         *guard = Some((root_path.clone(), shell::SearchIndex::open(Some(&db))?));
     }
     let (_, index) = guard.as_mut().unwrap();
@@ -144,9 +147,18 @@ struct HttpResponse {
 /// HTTP bridge for connectors, plugins and the AI assistant. The webview checks plugin
 /// permissions before calling; the app itself never calls this unless the user runs one of those.
 #[tauri::command]
-async fn http_fetch(url: String, method: Option<String>, headers: Option<HashMap<String, String>>, body: Option<String>) -> Result<HttpResponse, String> {
+async fn http_fetch(url: String, method: Option<String>, headers: Option<HashMap<String, String>>, body: Option<String>, allow_hosts: Option<Vec<String>>) -> Result<HttpResponse, String> {
     let method = reqwest::Method::from_bytes(method.unwrap_or_else(|| "GET".into()).as_bytes()).map_err(|e| e.to_string())?;
-    let mut req = reqwest::Client::new().request(method, &url);
+    // For plugin calls the webview passes the plugin's approved hosts: every redirect must stay within them.
+    let policy = match allow_hosts {
+        Some(allowed) => reqwest::redirect::Policy::custom(move |attempt| {
+            let ok = attempt.previous().len() < 10 && attempt.url().host_str().map(|h| shell::host_allowed(&allowed, h)).unwrap_or(false);
+            if ok { attempt.follow() } else { attempt.stop() }
+        }),
+        None => reqwest::redirect::Policy::limited(10),
+    };
+    let client = reqwest::Client::builder().redirect(policy).build().map_err(|e| e.to_string())?;
+    let mut req = client.request(method, &url);
     for (k, v) in headers.unwrap_or_default() {
         req = req.header(k, v);
     }

@@ -19,8 +19,7 @@ export function inventoryTable(ws: Workspace): Table {
 export { parseCsv } from "@vastitecture/core";
 import { parseCsv } from "@vastitecture/core";
 
-const csvCell = (v: string | number) => (/[",\n\r;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-export const tableToCsv = (t: Table) => [t.columns, ...t.rows].map((r) => r.map(csvCell).join(",")).join("\n") + "\n";
+export { tableToCsv } from "@vastitecture/core";
 
 /**
  * Bulk inventory edit: rows are matched to elements by id, else by type + name; unmatched rows with a

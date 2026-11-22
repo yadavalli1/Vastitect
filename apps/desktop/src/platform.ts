@@ -1,4 +1,5 @@
 import { isWorkspacePath, type FileMap, type ImportInput, type WorkspaceFS } from "@vastitecture/core";
+import { hostAllowed } from "@vastitecture/plugin-sdk";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -242,9 +243,12 @@ export const secrets = {
 };
 
 /** Network access for connectors, plugins and the AI assistant. Never called unless the user runs one. */
-export async function httpFetch(url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) {
-  if (isTauri) return invoke<{ status: number; headers: Record<string, string>; text: string }>("http_fetch", { url, ...init });
-  const r = await fetch(url, init);
+/** `allowHosts` (set by the plugin host) limits redirects to the plugin's approved hosts. */
+export async function httpFetch(url: string, init?: { method?: string; headers?: Record<string, string>; body?: string; allowHosts?: string[] }) {
+  const { method, headers, body, allowHosts } = init ?? {};
+  if (isTauri) return invoke<{ status: number; headers: Record<string, string>; text: string }>("http_fetch", { url, method, headers, body, allowHosts });
+  const r = await fetch(url, { method, headers, body });
+  if (allowHosts && r.url && !hostAllowed(allowHosts, new URL(r.url).hostname)) throw new Error(`Redirected to ${new URL(r.url).hostname}, which this plugin is not allowed to contact`);
   return { status: r.status, headers: Object.fromEntries(r.headers.entries()), text: await r.text() };
 }
 

@@ -54,7 +54,7 @@ export function parseC4Text(text: string, source: "mermaid" | "plantuml"): Model
   const stack: (Element | undefined)[] = [];
   let viewpoint = "c4:context";
   let title: string | undefined;
-  const lines = text.replace(/\r/g, "").split("\n");
+  const lines = text.replace(/\r/g, "").replace(/<U\+0025>/gi, "%").split("\n");
   // A Mermaid code fence or a PlantUML wrapper is fine.
   for (const [n, raw] of lines.entries()) {
     const line = raw.replace(/'.*$|%%.*$/, (m) => (m.startsWith("'") && source === "plantuml") || m.startsWith("%%") ? "" : m).trim();
@@ -142,7 +142,13 @@ const INCLUDE: Record<string, string> = { C4Context: "C4_Context", C4Container: 
 /** Write one view as a Mermaid C4 diagram or a C4-PlantUML file. */
 export function writeC4Text(ws: Workspace, viewId: Id, target: "mermaid" | "plantuml", typeOf: (e: Element) => string | undefined): string {
   const view = ws.views[viewId];
-  const q = (s: string | undefined) => `"${(s ?? "").replace(/"/g, "'").replace(/\n/g, " ")}"`;
+  // Model text never starts a new line (so it cannot add `!include ...`), and for PlantUML a `%` cannot
+  // call a preprocessor function such as `%getenv(...)`: it is written as a Unicode escape that renders the same.
+  const text = (s: string | undefined) => {
+    const t = (s ?? "").replace(/[\r\n\u000b\u000c\u0085\u2028\u2029]+/g, " ");
+    return target === "plantuml" ? t.replace(/%/g, "<U+0025>") : t;
+  };
+  const q = (s: string | undefined) => `"${text(s).replace(/"/g, "'")}"`;
   const alias = new Map<Id, string>();
   const used = new Set<string>();
   for (const n of view.nodes) {
@@ -155,7 +161,7 @@ export function writeC4Text(ws: Workspace, viewId: Id, target: "mermaid" | "plan
   const kids = new Map<Id | undefined, typeof view.nodes>();
   for (const n of view.nodes) if (ws.elements[n.element]) kids.set(n.parent, [...(kids.get(n.parent) ?? []), n]);
   const header = HEADER[view.viewpoint ?? ""] ?? "C4Context";
-  const out: string[] = target === "mermaid" ? [header, `    title ${view.name}`, ""] : ["@startuml", `!include <C4/${INCLUDE[header]}>`, "", `title ${view.name}`, ""];
+  const out: string[] = target === "mermaid" ? [header, `    title ${text(view.name)}`, ""] : ["@startuml", `!include <C4/${INCLUDE[header]}>`, "", `title ${text(view.name)}`, ""];
   const write = (parent: Id | undefined, depth: number) => {
     for (const n of (kids.get(parent) ?? []).sort((a, b) => a.y - b.y || a.x - b.x)) {
       const e = ws.elements[n.element];
