@@ -153,7 +153,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
         io.out(HELP);
         return 0;
       case "--version":
-        io.out("0.2.0");
+        io.out("0.3.0");
         return 0;
       default:
         throw new UsageError(`Unknown command "${cmd}"\n\n${HELP}`);

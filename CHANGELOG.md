@@ -1,6 +1,20 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
+
+### Design
+- A redesigned app: one title bar (workspace switcher with save status, undo/redo, search, Import and
+  Export menus, problems, assistant, theme, help), a contextual diagram toolbar, and a grouped navigation
+  rail with a consistent icon set.
+- Every page has a header and description; tables, cards, menus, tooltips, toasts and dialogs share one
+  design system in light and dark themes, with keyboard focus and contrast checked.
+- Faster start-up: the XML parser, AI and format packages load on first use.
+
+### Fixes
+- Saving no longer deletes files that failed to load (for example after a Git merge conflict).
+- Comments are read back by the desktop app.
+- Folder pickers on Discover and Insights work in the macOS app.
+- Switching workspace right after an edit no longer saves the old model into the new folder.
 
 ### Security
 A full security review (cloudflare/security-audit-skill, standard profile) of 0.2.0 found 18 issues, all now fixed.

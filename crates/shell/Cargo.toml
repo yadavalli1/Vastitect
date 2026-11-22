@@ -1,6 +1,6 @@
 [package]
 name = "vastitecture-shell"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 description = "Thin native services for Vastitecture: workspace files, search index, Git status. No UI or domain logic."

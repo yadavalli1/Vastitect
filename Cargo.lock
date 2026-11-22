@@ -4681,7 +4681,7 @@ dependencies = [
 
 [[package]]
 name = "vastitecture"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "keyring",
  "notify",
@@ -4697,7 +4697,7 @@ dependencies = [
 
 [[package]]
 name = "vastitecture-shell"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "rusqlite",
  "serde",
