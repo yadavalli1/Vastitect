@@ -1,5 +1,6 @@
 import { slugify, type Element, type ImportInput, type ModelPatch, type Workspace } from "@vastitecture/plugin-sdk";
-import { csvRows, docs, type J } from "./util";
+import { docs, type J } from "./util";
+import { parseCsv } from "@vastitecture/core";
 
 /**
  * Delivery work (Jira issues, Azure DevOps work items) linked to the elements it changes. Items are
@@ -67,7 +68,7 @@ export function fromAzureDevOps(items: J[], base?: string): WorkItem[] {
 
 /** CSV exports from Jira ("Issue key", "Summary", repeated "Labels" columns, "Component/s") or Azure DevOps ("ID", "Title", "Tags", "Area Path"). */
 export function fromCsv(text: string): WorkItem[] {
-  const [head, ...rows] = csvRows(text);
+  const [head, ...rows] = parseCsv(text);
   if (!head) return [];
   const cols = (re: RegExp) => head.map((h, i) => (re.test(h.trim()) ? i : -1)).filter((i) => i >= 0);
   const one = (r: string[], re: RegExp) => cols(re).map((i) => r[i]).find((v) => v?.trim()) ?? "";

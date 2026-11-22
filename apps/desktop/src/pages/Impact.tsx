@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { GAP_QUERIES, gapQuery, whatBreaks, whoUses, type QueryResult } from "@vastitecture/core";
 import { app, model, registry, select, set, useModel } from "../state";
 import { t } from "../i18n";
+import { Zap } from "lucide-react";
+import { PageHeader } from "../ui";
 
 /** Questions over the whole model: what breaks if X is retired, what uses Y, and data-quality gaps. */
 export function ImpactPage() {
@@ -20,8 +22,8 @@ export function ImpactPage() {
   }, [question, target, scope, elements, relationships]);
   const needsTarget = question === "breaks" || question === "uses";
   return (
-    <div style={{ padding: 16, maxWidth: 980 }} data-testid="impact-page">
-      <h2 style={{ marginTop: 0 }}>{t("Impact analysis")}</h2>
+    <div className="page" data-testid="impact-page">
+      <PageHeader icon={Zap} title={t("Impact analysis")} description={t("Ask what breaks if something is retired, what uses an element, and where the inventory has gaps.")} />
       <div className="flex gap-2 items-end" style={{ flexWrap: "wrap" }}>
         <div>
           <label className="label" htmlFor="iq-question">{t("Question")}</label>
@@ -54,7 +56,7 @@ export function ImpactPage() {
         <section style={{ marginTop: 16 }} aria-live="polite" data-testid="impact-result">
           <h3 style={{ marginBottom: 4 }}>{result.title}</h3>
           <p className="muted" style={{ marginTop: 0 }}>{result.summary}</p>
-          <table className="grid">
+          <table className="data-table">
             <thead><tr><th>{t("Element")}</th><th>{t("Type")}</th><th>{t("Owner")}</th><th>{t("Why")}</th></tr></thead>
             <tbody>
               {result.rows.map((r) => {

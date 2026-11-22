@@ -53,6 +53,8 @@ export class Persister {
   /** Last content known to be on disk, per path. */
   private disk: FileMap = {};
   private index: PathIndex = {};
+  /** Files that failed to load (bad YAML, Git conflict markers). They are never rewritten or deleted. */
+  private unreadable = new Set<string>();
 
   constructor(public fs: WorkspaceFS) {}
 
@@ -61,6 +63,7 @@ export class Persister {
     const { workspace, index, issues } = fromFiles(files);
     this.disk = Object.fromEntries(Object.entries(files).filter(([p]) => isWorkspacePath(p)));
     this.index = index;
+    this.unreadable = new Set(issues.map((i) => i.path));
     return { workspace, issues };
   }
 
@@ -69,17 +72,19 @@ export class Persister {
     const { files, index } = toFiles(ws, this.index);
     const changed: string[] = [];
     for (const [path, content] of Object.entries(files)) {
+      if (this.unreadable.has(path)) continue;
       if (this.disk[path] !== content) {
         await this.fs.write(path, content);
         changed.push(path);
       }
     }
     for (const path of Object.keys(this.disk)) {
-      if (!(path in files)) {
+      if (!(path in files) && !this.unreadable.has(path)) {
         await this.fs.remove(path);
         changed.push(path);
       }
     }
+    for (const path of this.unreadable) if (this.disk[path] !== undefined) files[path] = this.disk[path];
     this.disk = files;
     this.index = index;
     return changed;
@@ -97,6 +102,8 @@ export class Persister {
     if (!changedOutside.length) return undefined;
 
     const ours = toFiles(current, this.index).files;
+    // We never held unreadable files in memory, so "ours" for them is what was on disk.
+    for (const p of this.unreadable) if (this.disk[p] !== undefined) ours[p] = this.disk[p];
     const conflicts = changedOutside
       .filter((p) => ours[p] !== this.disk[p] && ours[p] !== theirs[p])
       .map((path) => ({ path, ours: ours[path], theirs: theirs[path], base: this.disk[path] }));
@@ -111,6 +118,7 @@ export class Persister {
     const { workspace, index, issues } = fromFiles(merged);
     this.disk = theirs;
     this.index = { ...this.index, ...index };
+    this.unreadable = new Set(issues.map((i) => i.path));
     return { workspace, issues, conflicts };
   }
 

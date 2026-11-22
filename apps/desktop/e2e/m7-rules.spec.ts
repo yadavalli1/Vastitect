@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { files, newWorkspace } from "./helpers";
+import { files, newWorkspace, go } from "./helpers";
 
-const go = (page: import("@playwright/test").Page, name: string) => page.getByRole("button", { name, exact: true }).first().click();
 
 test("architecture rules: add starters, see violations, edit as YAML, and store them in vastitecture.yaml", async ({ page }) => {
   await page.goto("/");

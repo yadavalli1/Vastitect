@@ -135,6 +135,62 @@ export async function pickFolder(): Promise<WorkspaceFS | undefined> {
 }
 export const canPickFolder = () => isTauri || "showDirectoryPicker" in window;
 
+/** A file in a folder the user picked; `text` is undefined for files that are only listed by name. */
+export interface PickedFile {
+  path: string;
+  text?: string;
+}
+const SKIP_DIRS = new Set(["node_modules", "vendor", "dist", "build", "target", "__pycache__", ".venv", "venv", ".vastitecture"]);
+
+/** Browser: walk a directory handle the user granted, reading files `wanted` accepts. */
+async function walkHandle(root: FileSystemDirectoryHandle, wanted: (path: string) => boolean, limit = 20_000): Promise<PickedFile[]> {
+  const out: PickedFile[] = [];
+  const walk = async (dir: FileSystemDirectoryHandle, prefix: string) => {
+    for await (const [name, h] of (dir as unknown as { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries()) {
+      if (out.length >= limit || SKIP_DIRS.has(name)) continue;
+      const path = prefix + name;
+      if (h.kind === "directory") {
+        if (!prefix.endsWith(".git/") && (!name.startsWith(".") || name === ".git" || name === ".github")) await walk(h as FileSystemDirectoryHandle, `${path}/`);
+      } else if (!prefix.endsWith(".git/") || name === "config") {
+        out.push({ path, text: wanted(path) ? await (await (h as FileSystemFileHandle).getFile()).text() : undefined });
+      }
+    }
+  };
+  await walk(root, `${root.name}/`);
+  return out;
+}
+
+async function chooseDirectory(): Promise<string | FileSystemDirectoryHandle | undefined> {
+  if (isTauri) {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const dir = await open({ directory: true, multiple: false });
+    return typeof dir === "string" ? dir : undefined;
+  }
+  const picker = (window as unknown as { showDirectoryPicker?: (o: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
+  return picker ? picker({ mode: "read" }).catch(() => undefined) : undefined;
+}
+
+/**
+ * Let the user pick any folder (a repository, a set of manifests) and read it for discovery. Files
+ * `wanted` accepts are read; the rest are listed by name only, so large repositories stay cheap.
+ */
+export async function pickFolderTree(wanted: (path: string) => boolean): Promise<PickedFile[] | undefined> {
+  const dir = await chooseDirectory();
+  if (!dir) return undefined;
+  if (typeof dir !== "string") return walkHandle(dir, wanted);
+  const files = await invoke<{ path: string; text: string | null }[]>("read_tree", { root: dir });
+  return files.map((f) => ({ path: f.path, text: f.text !== null && wanted(f.path) ? f.text : undefined }));
+}
+
+/** Let the user pick another copy of a workspace and read its model files (for comparing versions). */
+export async function pickWorkspaceFolder(): Promise<FileMap | undefined> {
+  const dir = await chooseDirectory();
+  if (!dir) return undefined;
+  if (typeof dir === "string") return invoke<FileMap>("ws_read_all", { root: dir });
+  const files = await walkHandle(dir, (p) => isWorkspacePath(p.slice(p.indexOf("/") + 1)));
+  return Object.fromEntries(files.filter((f) => f.text !== undefined).map((f) => [f.path.slice(f.path.indexOf("/") + 1), f.text!]));
+}
+
 export function pickFiles(accept = "", multiple = true): Promise<ImportInput[]> {
   return new Promise((resolve) => {
     const input = document.createElement("input");

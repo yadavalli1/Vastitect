@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { validate, viewsContaining, type Problem } from "@vastitecture/core";
 import { dispatch, model, registry, select, set, useModel, useRegistryVersion } from "../state";
 import { t } from "../i18n";
+import { SeverityIcon } from "../ui";
 
 export function useProblems(): Problem[] {
   const elements = useModel((ws) => ws.elements);
@@ -36,7 +37,6 @@ export function useProblems(): Problem[] {
   }, [elements, relationships, views, mappings, rules, v, fromPlugins]);
 }
 
-const ICON = { error: "⛔", warning: "⚠", info: "ℹ" };
 
 /** Show a problem: open its view when it has one, and select what it is about. */
 export function goToProblem(p: Problem) {
@@ -60,7 +60,7 @@ export function Problems({ problems }: { problems: Problem[] }) {
       <div className="h">{t("Problems")} ({problems.length})</div>
       {problems.slice(0, 500).map((p, i) => (
         <div key={i} className="row" role="button" tabIndex={0} onClick={() => go(p)} onKeyDown={(e) => e.key === "Enter" && go(p)}>
-          <span className={`sev-${p.severity}`} aria-label={p.severity}>{ICON[p.severity]}</span>
+          <span className={`sev-${p.severity}`} aria-label={p.severity}><SeverityIcon level={p.severity} /></span>
           <span>{p.message}</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
             {p.fixes?.map((f) => (

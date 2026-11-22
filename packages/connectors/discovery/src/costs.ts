@@ -1,5 +1,5 @@
 import { slugify, type Element, type ImportInput, type ModelPatch, type Workspace } from "@vastitecture/plugin-sdk";
-import { csvRows } from "./util";
+import { parseCsv } from "@vastitecture/core";
 
 /**
  * Cloud cost exports (AWS Cost and Usage Report 1.0/2.0, Azure cost details, Google Cloud billing
@@ -39,7 +39,7 @@ function parseTags(v: string): Record<string, string> {
 export function parseCostFiles(files: ImportInput[], report: string[] = []): Line[] {
   const lines: Line[] = [];
   for (const f of files) {
-    const [head, ...rows] = csvRows(f.text);
+    const [head, ...rows] = parseCsv(f.text);
     if (!head) continue;
     const find = (re: RegExp) => head.findIndex((h) => re.test(h.trim()));
     const [ri, ci, ui, di, ti] = [find(COL.resource), find(COL.cost), find(COL.currency), find(COL.date), find(COL.tags)];

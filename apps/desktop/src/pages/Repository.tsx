@@ -1,5 +1,7 @@
 import { dispatch, registry, select, set, useModel, useRegistryVersion } from "../state";
 import { t } from "../i18n";
+import { Library } from "lucide-react";
+import { PageHeader } from "../ui";
 
 /** Architecture repository: every view grouped by ADM phase and architecture domain. */
 export function RepositoryPage() {
@@ -20,10 +22,9 @@ export function RepositoryPage() {
   const open = (id: string) => (set({ activeView: id, page: "diagram" }), select());
   const tagged = (phase: string) => Object.values(elements).filter((e) => e.properties.admPhase === phase).length;
   return (
-    <div style={{ padding: 16 }} data-testid="repository-page">
-      <h2 style={{ marginTop: 0 }}>{t("Architecture repository")}</h2>
-      <p className="muted">{t("Views grouped by ADM phase and architecture domain. Tag a view in its properties, or with the selectors under “Untagged views”.")}</p>
-      <table className="grid">
+    <div className="page" data-testid="repository-page">
+      <PageHeader icon={Library} title={t("Architecture repository")} description={t("Views grouped by ADM phase and architecture domain. Tag a view in its properties, or with the selectors under “Untagged views”.")} />
+      <table className="data-table">
         <thead>
           <tr>
             <th>{t("ADM phase")}</th>
@@ -48,7 +49,7 @@ export function RepositoryPage() {
         </tbody>
       </table>
       <h3>{t("Untagged views")}</h3>
-      <table className="grid" style={{ maxWidth: 900 }}>
+      <table className="data-table" style={{ maxWidth: 900 }}>
         <tbody>
           {list.filter((v) => !v.properties.admPhase).map((v) => (
             <tr key={v.id}>

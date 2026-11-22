@@ -1,12 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { newWorkspace, node, openView, state } from "./helpers";
+import { newWorkspace, node, openView, state, go } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await newWorkspace(page, "m6-" + Math.random().toString(36).slice(2, 8), "sample");
 });
 
-const go = (page: import("@playwright/test").Page, section: string) => page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: section, exact: true }).click();
 
 test("the sample workspace answers “what breaks if we retire the Warehouse System”", async ({ page }) => {
   await go(page, "Impact analysis");
@@ -82,7 +81,7 @@ test("capability heat map, lifecycle roadmap and decisions", async ({ page }) =>
   await node(page, "Warehouse System").click();
   await page.getByTestId("properties").getByRole("button", { name: /0002 Replace the Warehouse System/ }).click();
   await expect(page.getByTestId("adr-preview")).toContainText("out of vendor support");
-  await page.getByRole("button", { name: "+ New" }).click();
+  await page.getByRole("button", { name: "New", exact: true }).click();
   await page.getByLabel("Title").fill("Adopt OpenTelemetry");
   await page.getByLabel("Title").press("Enter");
   await page.getByLabel("Markdown").fill("## Decision\n\nUse **OpenTelemetry** everywhere.");

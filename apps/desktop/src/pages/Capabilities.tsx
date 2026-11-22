@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { equivalentTypes, type Element, type Id, type Workspace } from "@vastitecture/core";
 import { model, select, set, useModel } from "../state";
 import { t } from "../i18n";
+import { LayoutGrid } from "lucide-react";
+import { EmptyState, PageHeader } from "../ui";
 
 const FIT = ["Unreasonable", "Insufficient", "Adequate", "Excellent"];
 const PHASE_RANK: Record<string, number> = { endOfLife: 0, phaseOut: 1, plan: 2, phaseIn: 3, active: 4 };
@@ -111,21 +113,21 @@ export function CapabilitiesPage() {
     );
   };
   return (
-    <div style={{ padding: 16 }} data-testid="capabilities-page">
-      <div className="flex items-center gap-3" style={{ marginBottom: 10 }}>
-        <h2 style={{ margin: 0 }}>{t("Business capability map")}</h2>
-        <label className="flex items-center gap-2">{t("Heat map by")}
-          <select className="btn" aria-label={t("Heat map metric")} value={metricId} onChange={(e) => setMetricId(e.target.value)}>
+    <div className="page wide" data-testid="capabilities-page">
+      <PageHeader icon={LayoutGrid} title={t("Business capability map")} description={t("Capabilities nested as they are in the model, coloured by how well the applications that support them perform.")} />
+      <div className="flex items-center gap-3" style={{ marginBottom: 16 }}>
+        <label className="flex items-center gap-2 muted">{t("Heat map by")}
+          <select className="input" style={{ width: "auto" }} aria-label={t("Heat map metric")} value={metricId} onChange={(e) => setMetricId(e.target.value)}>
             {METRICS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
         </label>
-        <span className="flex items-center gap-1" aria-label={t("Legend")} style={{ fontSize: 11 }}>
+        <span className="flex items-center gap-1 faint" aria-label={t("Legend")} style={{ fontSize: 11.5, marginLeft: "auto" }}>
           {metric.higherIsBetter ? t("worse") : t("higher")}
-          {SCALE.map((c) => <span key={c} style={{ width: 18, height: 12, background: c, border: "1px solid var(--border)", display: "inline-block" }} />)}
+          {SCALE.map((c) => <span key={c} style={{ width: 20, height: 10, background: c, borderRadius: 3, boxShadow: "inset 0 0 0 1px rgb(0 0 0 / .1)", display: "inline-block" }} />)}
           {metric.higherIsBetter ? t("better") : t("lower")}
         </span>
       </div>
-      {!roots.length && <p className="muted">{t("No capabilities in the model yet. Add ArchiMate Capability elements, nested under each other, and relate applications to them.")}</p>}
+      {!roots.length && <EmptyState icon={LayoutGrid} title={t("No capabilities yet")}>{t("No capabilities in the model yet. Add ArchiMate Capability elements, nested under each other, and relate applications to them.")}</EmptyState>}
       <div className="flex" style={{ flexWrap: "wrap", alignItems: "flex-start" }}>{roots.map((r) => tile(r.id, 0))}</div>
     </div>
   );

@@ -3,8 +3,10 @@ import { chatTurn, draftAdr, type ChatTurn } from "@vastitecture/ai";
 import type { ModelPatch } from "@vastitecture/core";
 import { markdownToHtml } from "@vastitecture/render";
 import { aiConfig, aiFetch, useAiSettings } from "../ai";
-import { model, registry, set, useApp } from "../state";
+import { model, registry, set, useApp, openReview, today } from "../state";
 import { t } from "../i18n";
+import { Sparkles, X } from "lucide-react";
+import { IconButton } from "../ui";
 
 interface Entry extends ChatTurn {
   patch?: ModelPatch;
@@ -31,7 +33,7 @@ export function ChatPanel() {
     end.current?.scrollIntoView?.({ block: "end" });
   }, [log]);
 
-  const review = (title: string, patch: ModelPatch) => set({ review: { title, patch, layoutViews: patch.layout } });
+  const review = openReview;
   const send = async (message: string) => {
     if (!message.trim() || busy) return;
     const next = [...log, { role: "user" as const, content: message }];
@@ -52,7 +54,7 @@ export function ChatPanel() {
   const adr = async () => {
     setBusy(true);
     try {
-      const patch = await draftAdr(await aiConfig(), aiFetch, model.state, registry, { elements: selection, topic: text, today: new Date().toISOString().slice(0, 10) });
+      const patch = await draftAdr(await aiConfig(), aiFetch, model.state, registry, { elements: selection, topic: text, today: today() });
       setLog([...log, { role: "user", content: t("Draft a decision record: {topic}", { topic: text || t("the selection") }) }, { role: "assistant", content: patch.report?.[0] ?? "", patch }]);
       setText("");
       review(t("Assistant: draft decision record"), patch);
@@ -67,9 +69,9 @@ export function ChatPanel() {
   return (
     <aside className="panel border-l flex flex-col" style={{ width: 340, minWidth: 340 }} aria-label={t("Assistant chat")} data-testid="chat">
       <div className="h flex items-center">
-        <span style={{ flex: 1 }}>✦ {t("Assistant chat")}</span>
+        <span className="flex items-center gap-2" style={{ flex: 1 }}><Sparkles size={13} aria-hidden /> {t("Assistant chat")}</span>
         {!!log.length && <button className="btn ghost" onClick={() => setLog([])}>{t("Clear")}</button>}
-        <button className="btn ghost" aria-label={t("Close")} onClick={() => set({ chatOpen: false })}>✕</button>
+        <IconButton size="sm" icon={X} label={t("Close")} onClick={() => set({ chatOpen: false })} />
       </div>
       {!ai.enabled ? (
         <div style={{ padding: 12 }}>

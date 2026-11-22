@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { applyReview, downloadText, newWorkspace, openView, pasteImport, state } from "./helpers";
+import { applyReview, downloadText, newWorkspace, openView, pasteImport, state, exportMenu, importMenu } from "./helpers";
 
-const exportAs = (page: import("@playwright/test").Page, label: string) => downloadText(page, () => page.getByLabel("Export", { exact: true }).selectOption({ label }));
+const exportAs = (page: import("@playwright/test").Page, label: string) => downloadText(page, () => exportMenu(page, label));
 
 test("paste a Mermaid C4 block to create a view, then export it as Mermaid, PlantUML, draw.io and PDF", async ({ page }) => {
   await page.goto("/");
@@ -33,7 +33,7 @@ test("bulk-edit the inventory through CSV", async ({ page }) => {
   const lines = csv.text.trim().split("\n");
   expect(lines[0].startsWith("id,name,type,description,parent,owner,lifecycle,tags")).toBe(true);
   const edited = [lines[0], ...lines.slice(1).map((l) => (l.includes(",Warehouse System,") ? l.replace(",Team Fulfilment,", ",Team Logistics,") : l))].join("\n") + "\n";
-  const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByRole("button", { name: "Import", exact: true }).click()]);
+  const [chooser] = await Promise.all([page.waitForEvent("filechooser"), importMenu(page, "Import files…")]);
   await chooser.setFiles({ name: "inventory.csv", mimeType: "text/csv", buffer: Buffer.from(edited) });
   const review = page.getByTestId("review");
   await expect(review).toContainText("~1 changed");

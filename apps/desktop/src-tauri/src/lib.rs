@@ -87,6 +87,11 @@ async fn git_files_at(root: String, rev: String) -> Result<std::collections::BTr
 }
 
 #[tauri::command]
+async fn read_tree(root: String) -> Result<Vec<shell::TreeFile>, String> {
+    shell::read_tree(Path::new(&root), 20_000)
+}
+
+#[tauri::command]
 fn git_log(root: String) -> Vec<shell::GitCommit> {
     shell::git_log(Path::new(&root), 30)
 }
@@ -204,6 +209,7 @@ pub fn run() {
             ws_unwatch,
             write_binary,
             git_files_at,
+            read_tree,
             git_log,
             git_status,
             git_diff,

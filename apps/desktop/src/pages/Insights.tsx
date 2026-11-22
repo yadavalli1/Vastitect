@@ -6,7 +6,6 @@ import {
   dataExposure,
   diffWorkspaces,
   fromFiles,
-  isWorkspacePath,
   makeElement,
   makeRelationship,
   makeView,
@@ -18,13 +17,14 @@ import {
   type PatchDiff,
   type Workspace,
 } from "@vastitecture/core";
-import { app, model, registry, select, set, useApp, useModel } from "../state";
-import { isTauri } from "../platform";
+import { app, model, registry, select, set, useApp, useModel, openReview, today } from "../state";
+import { canPickFolder, isTauri, pickWorkspaceFolder } from "../platform";
 import type { Overlay } from "../canvas/context";
 import { t } from "../i18n";
+import { ChartPie, Eye } from "lucide-react";
+import { Button, PageHeader, Tabs } from "../ui";
 
 type Tab = "changes" | "plateaus" | "structure" | "data" | "costs";
-const today = () => new Date().toISOString().slice(0, 10);
 const inAYear = () => new Date(Date.now() + 365 * 86_400_000).toISOString().slice(0, 10);
 
 /** Draw an analysis over the canvas, on the view that shows most of the marked elements. */
@@ -46,24 +46,6 @@ function Name({ id }: { id: Id }) {
       {el.name}
     </a>
   );
-}
-
-async function pickWorkspaceFolder(): Promise<Record<string, string> | undefined> {
-  const picker = (window as unknown as { showDirectoryPicker?: (o?: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
-  if (!picker) return undefined;
-  const root = await picker({ mode: "read" }).catch(() => undefined);
-  if (!root) return undefined;
-  const files: Record<string, string> = {};
-  const walk = async (dir: FileSystemDirectoryHandle, prefix: string) => {
-    for await (const [name, h] of (dir as unknown as { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries()) {
-      if (name.startsWith(".") || name === "node_modules") continue;
-      const path = prefix + name;
-      if (h.kind === "directory") await walk(h as FileSystemDirectoryHandle, `${path}/`);
-      else if (isWorkspacePath(path)) files[path] = await (await (h as FileSystemFileHandle).getFile()).text();
-    }
-  };
-  await walk(root, "");
-  return files;
 }
 
 function ChangesTab() {
@@ -108,7 +90,7 @@ function ChangesTab() {
             setCommits(await invoke("git_log", { root }));
           }}>{t("Pick a commit…")}</button>
         )}
-        {"showDirectoryPicker" in window && <button className="btn" onClick={async () => void load(t("the chosen folder"), await pickWorkspaceFolder())}>{t("Compare with a folder…")}</button>}
+        {canPickFolder() && <button className="btn" onClick={async () => void load(t("the chosen folder"), await pickWorkspaceFolder().catch((e) => void setError(String(e))))}>{t("Compare with a folder…")}</button>}
       </div>
       {commits && (
         <select className="input mt-2" aria-label={t("Commit")} onChange={(e) => e.target.value && void fromGit(e.target.value, e.target.value)} defaultValue="">
@@ -116,7 +98,7 @@ function ChangesTab() {
           {commits.map((c) => <option key={c.hash} value={c.hash}>{c.date} {c.hash} {c.subject}</option>)}
         </select>
       )}
-      {!git && !("showDirectoryPicker" in window) && <p className="muted">{t("Open a workspace folder in the desktop app to compare with Git history.")}</p>}
+      {!git && !canPickFolder() && <p className="muted">{t("Open a workspace folder in the desktop app to compare with Git history.")}</p>}
       {error && <p className="sev-error" role="alert">{error}</p>}
       {diff && (
         <div data-testid="changes">
@@ -164,7 +146,7 @@ function PlateausTab() {
     v.nodes = [...ids].map((id) => ({ element: id, x: 0, y: 0, w: id === asIs.id || id === toBe.id ? 220 : 160, h: id === asIs.id || id === toBe.id ? 100 : 70 }));
     v.edges = rels.map((r) => ({ relationship: r.id }));
     const patch: ModelPatch = { elements: [asIs, toBe], relationships: rels, views: [v], layout: [v.id], report: [t("Plateaus for {from} and {to}, aggregating the {count} element(s) that have lifecycle dates.", { from, to, count: ids.size - 2 })] };
-    set({ review: { title: t("Create migration view"), patch, layoutViews: patch.layout } });
+    openReview(t("Create migration view"), patch);
   };
   return (
     <div>
@@ -172,15 +154,15 @@ function PlateausTab() {
       <div className="flex gap-2 items-center">
         <label>{t("As-is")} <input className="input" type="date" aria-label={t("As-is date")} value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>{t("To-be")} <input className="input" type="date" aria-label={t("To-be date")} value={to} onChange={(e) => setTo(e.target.value)} /></label>
-        <button className="btn" onClick={() => showOnCanvas(overlay())}>{t("Show on the diagrams")}</button>
+        <Button icon={Eye} onClick={() => showOnCanvas(overlay())}>{t("Show on the diagrams")}</Button>
         <button className="btn" disabled={!dated} onClick={migrationView}>{t("Create migration view…")}</button>
       </div>
-      <div className="flex gap-4" style={{ flexWrap: "wrap" }} data-testid="plateaus">
-        <section><h4>{t("Introduced ({count})", { count: d.introduced.length })}</h4><ul>{d.introduced.map((id) => <li key={id}><Name id={id} /></li>)}</ul></section>
-        <section><h4>{t("Retired ({count})", { count: d.retired.length })}</h4><ul>{d.retired.map((id) => <li key={id}><Name id={id} /></li>)}</ul></section>
-        <section><h4>{t("Changing phase ({count})", { count: d.changed.length })}</h4><ul>{d.changed.map((c) => <li key={c.id}><Name id={c.id} />: {c.from} → {c.to}</li>)}</ul></section>
-        <section>
-          <h4 className={d.broken.length ? "sev-error" : undefined}>{t("Dependencies the migration breaks ({count})", { count: d.broken.length })}</h4>
+      <div className="grid-2" style={{ marginTop: 16 }} data-testid="plateaus">
+        <section className="card card-pad"><h4 style={{ marginTop: 0 }}>{t("Introduced ({count})", { count: d.introduced.length })}</h4><ul>{d.introduced.map((id) => <li key={id}><Name id={id} /></li>)}</ul></section>
+        <section className="card card-pad"><h4 style={{ marginTop: 0 }}>{t("Retired ({count})", { count: d.retired.length })}</h4><ul>{d.retired.map((id) => <li key={id}><Name id={id} /></li>)}</ul></section>
+        <section className="card card-pad"><h4 style={{ marginTop: 0 }}>{t("Changing phase ({count})", { count: d.changed.length })}</h4><ul>{d.changed.map((c) => <li key={c.id}><Name id={c.id} />: {c.from} → {c.to}</li>)}</ul></section>
+        <section className="card card-pad">
+          <h4 style={{ marginTop: 0 }} className={d.broken.length ? "sev-error" : undefined}>{t("Dependencies the migration breaks ({count})", { count: d.broken.length })}</h4>
           <ul>{d.broken.map((b) => <li key={b.relationship}><Name id={b.dependent} /> → <Name id={b.dependency} /></li>)}</ul>
         </section>
       </div>
@@ -202,9 +184,9 @@ function StructureTab() {
   return (
     <div data-testid="structure">
       <p className="muted">{t("Dependencies only (containment is not counted). Reach is how many elements depend on an element, directly or indirectly. An element that connects otherwise separate parts is a single point of failure.")}</p>
-      <button className="btn" onClick={() => showOnCanvas(overlay())}>{t("Show on the diagrams")}</button>
+      <Button icon={Eye} onClick={() => showOnCanvas(overlay())}>{t("Show on the diagrams")}</Button>
       <h4>{t("Hotspots")}</h4>
-      <table className="grid">
+      <div className="card" style={{ overflow: "hidden" }}><table className="data-table">
         <thead><tr><th>{t("Element")}</th><th>{t("Reach")}</th><th>{t("Used by")}</th><th>{t("Depends on")}</th><th>{t("Instability")}</th><th>{t("Notes")}</th></tr></thead>
         <tbody>
           {s.hotspots.slice(0, 25).map((id) => {
@@ -217,7 +199,7 @@ function StructureTab() {
             );
           })}
         </tbody>
-      </table>
+      </table></div>
       <h4>{t("Dependency cycles ({count})", { count: s.cycles.length })}</h4>
       <ul>{s.cycles.map((c, i) => <li key={i}>{c.map((id, j) => <span key={id}>{j ? " → " : ""}<Name id={id} /></span>)}</li>)}</ul>
     </div>
@@ -238,7 +220,7 @@ function DataTab() {
   return (
     <div data-testid="data">
       <p className="muted">{t("Set the property dataClassification (public, internal, confidential, restricted) on elements that hold data, and external: true on systems outside the organisation. Data is followed along relationships, except those with dataFlow: none.")}</p>
-      <p>{t("{count} element(s) are classified.", { count: classified.length })} <button className="btn" onClick={() => showOnCanvas(overlay())}>{t("Show on the diagrams")}</button></p>
+      <p>{t("{count} element(s) are classified.", { count: classified.length })} <Button icon={Eye} onClick={() => showOnCanvas(overlay())}>{t("Show on the diagrams")}</Button></p>
       <h4 className={x.findings.length ? "sev-error" : undefined}>{t("Findings ({count})", { count: x.findings.length })}</h4>
       <ul>
         {x.findings.map((f) => (
@@ -269,11 +251,11 @@ function CostsTab() {
       <p className="muted">{t("Costs come from the monthlyCost property, set by the Cloud costs connector or by hand, and are added up through containment.")}</p>
       {!rows.length ? <p>{t("No element has a monthlyCost yet.")}</p> : (
         <>
-          <button className="btn" onClick={() => showOnCanvas(overlay())}>{t("Show on the diagrams")}</button>
-          <table className="grid mt-2">
+          <Button icon={Eye} onClick={() => showOnCanvas(overlay())}>{t("Show on the diagrams")}</Button>
+          <div className="card mt-3" style={{ overflow: "hidden" }}><table className="data-table">
             <thead><tr><th>{t("Element")}</th><th>{t("Own")}</th><th>{t("Including contents")}</th></tr></thead>
             <tbody>{rows.slice(0, 50).map(([id, c]) => <tr key={id}><td><Name id={id} /></td><td>{c.own ? fmt(c.own) : ""}</td><td>{fmt(c.total)}</td></tr>)}</tbody>
-          </table>
+          </table></div>
         </>
       )}
     </div>
@@ -285,11 +267,9 @@ export function InsightsPage() {
   const [tab, setTab] = useState<Tab>("changes");
   const tabs: [Tab, string][] = [["changes", t("What changed")], ["plateaus", t("As-is / to-be")], ["structure", t("Structure")], ["data", t("Data")], ["costs", t("Costs")]];
   return (
-    <div style={{ padding: 16, maxWidth: 1100 }} data-testid="insights-page">
-      <h2 style={{ marginTop: 0 }}>{t("Insights")}</h2>
-      <div role="tablist" className="flex gap-2 mb-3">
-        {tabs.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={`btn${tab === id ? " on" : ""}`} onClick={() => setTab(id)}>{label}</button>)}
-      </div>
+    <div className="page" data-testid="insights-page">
+      <PageHeader icon={ChartPie} title={t("Insights")} description={t("How the model has changed, how it will change, how it hangs together, where data goes and what it costs. Any result can be drawn on the diagrams.")} />
+      <div style={{ marginBottom: 20 }}><Tabs<Tab> label={t("Insights")} value={tab} onChange={setTab} tabs={tabs} /></div>
       {tab === "changes" && <ChangesTab />}
       {tab === "plateaus" && <PlateausTab />}
       {tab === "structure" && <StructureTab />}

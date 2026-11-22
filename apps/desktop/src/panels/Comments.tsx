@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { newId, type Comment } from "@vastitecture/core";
-import { dispatch, useModel } from "../state";
+import { dispatch, useModel, today } from "../state";
 import { t } from "../i18n";
 
 const AUTHOR_KEY = "vastitecture/author";
@@ -31,7 +31,7 @@ export function Comments({ target }: { target: Comment["target"] }) {
     } catch {
       /* private mode: the name is just not remembered */
     }
-    dispatch({ type: "putComment", comment: { id: newId(), target, author: author.trim(), date: new Date().toISOString().slice(0, 10), text: text.trim(), ...(replyTo ? { replyTo } : {}) } }, t("Comment"));
+    dispatch({ type: "putComment", comment: { id: newId(), target, author: author.trim(), date: today(), text: text.trim(), ...(replyTo ? { replyTo } : {}) } }, t("Comment"));
     setText("");
     setReplyTo(undefined);
   };

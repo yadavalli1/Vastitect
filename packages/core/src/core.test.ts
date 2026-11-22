@@ -245,3 +245,28 @@ describe("validation", () => {
     expect(validate(store.state, reg).some((p) => p.code === "invalid-relationship")).toBe(false);
   });
 });
+
+describe("Persister keeps files it cannot read", () => {
+  it("never deletes a file that failed to load (e.g. one with Git conflict markers)", async () => {
+    const fs = new MemoryFS();
+    const ws = emptyWorkspace("W");
+    const a = makeElement("c4:Container", "A");
+    ws.elements[a.id] = a;
+    const { files } = toFiles(ws);
+    for (const [path, text] of Object.entries(files)) await fs.write(path, text);
+    const broken = "model/elements/c4/container/b.yaml";
+    await fs.write(broken, "<<<<<<< HEAD\nid: b\nname: B\n=======\nid: b\nname: Bee\n>>>>>>> theirs\n");
+    const p = new Persister(fs);
+    const loaded = await p.load();
+    expect(loaded.issues.map((i) => i.path)).toEqual([broken]);
+    const s = new ModelStore(loaded.workspace);
+    s.dispatch({ type: "updateElement", id: a.id, patch: { name: "A2" } });
+    await p.save(s.state);
+    expect((await fs.readAll())[broken]).toContain("<<<<<<< HEAD");
+    // Once fixed on disk, it loads normally and is managed again.
+    await fs.write(broken, "id: b\ntype: c4:Container\nname: B\n");
+    const ext = await p.checkExternal(s.state);
+    expect(ext?.issues).toEqual([]);
+    expect(Object.values(ext!.workspace.elements).map((e) => e.name).sort()).toEqual(["A2", "B"]);
+  });
+});

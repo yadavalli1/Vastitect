@@ -1,5 +1,6 @@
 import type { Element, ImportInput, ModelPatch, Workspace, WriteBackItem } from "@vastitecture/plugin-sdk";
-import { Draft, type J, csvRows } from "./util";
+import { Draft, type J } from "./util";
+import { parseCsv } from "@vastitecture/core";
 
 /** CMDB tables read by default: business applications, services, applications, databases and hosts. */
 export const SERVICENOW_TABLES = [
@@ -164,7 +165,7 @@ export function parseServiceNowFiles(files: ImportInput[]): ServiceNowData {
 }
 
 function csvObjects(text: string): J[] {
-  const rows = csvRows(text);
+  const rows = parseCsv(text);
   const [head, ...body] = rows;
   if (!head) return [];
   const keys = head.map((h) => h.trim().replace(/^﻿/, "").replace(/^.*\./, ""));

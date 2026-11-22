@@ -92,24 +92,3 @@ export class Draft {
 
 export const titleCase = (s: string) => s.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-/** RFC 4180 CSV rows (quoted cells, doubled quotes, CRLF). Blank rows are dropped and a byte-order mark is removed. */
-export function csvRows(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [], cell = "", q = false;
-  text = text.replace(/^\uFEFF/, "");
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (q) {
-      if (c === '"' && text[i + 1] === '"') (cell += '"'), i++;
-      else if (c === '"') q = false;
-      else cell += c;
-    } else if (c === '"') q = true;
-    else if (c === ",") row.push(cell), (cell = "");
-    else if (c === "\n" || c === "\r") {
-      if (c === "\r" && text[i + 1] === "\n") i++;
-      row.push(cell), rows.push(row), (row = []), (cell = "");
-    } else cell += c;
-  }
-  if (cell || row.length) row.push(cell), rows.push(row);
-  return rows.filter((r) => r.some((x) => x.trim()));
-}

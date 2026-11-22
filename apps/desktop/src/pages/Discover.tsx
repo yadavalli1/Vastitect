@@ -1,40 +1,18 @@
 import { useEffect, useState } from "react";
 import { reconcilePatch, type ConnectorCli, type ImportInput, type WriteBackItem } from "@vastitecture/core";
 import { model, registry, set, toast, useRegistryVersion } from "../state";
-import { isTauri, pickFiles, secrets } from "../platform";
+import { canPickFolder, isTauri, pickFiles, pickFolderTree, secrets } from "../platform";
 import { MANIFESTS } from "@vastitecture/connectors-discovery";
 import { t } from "../i18n";
+import { Activity, Building2, Cloud, FileCode2, Puzzle, Radar, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Button, PageHeader } from "../ui";
 
-const FOLDER_FILES = /\.(ya?ml|json|tfstate)$/i;
-const SKIP = new Set(["node_modules", "vendor", "dist", "build", "target", "__pycache__", ".venv", "venv"]);
-
-/**
- * Read a folder the user picks (Chromium and the desktop app). Specs, manifests and state files are read;
- * other files are listed by name only (enough to detect languages), so large repositories stay cheap.
- */
-async function pickFolderFiles(namesToo: boolean): Promise<ImportInput[]> {
-  const picker = (window as unknown as { showDirectoryPicker?: (o?: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
-  if (!picker) return [];
-  const root = await picker({ mode: "read" }).catch(() => undefined);
-  if (!root) return [];
-  const out: ImportInput[] = [];
-  const walk = async (dir: FileSystemDirectoryHandle, prefix: string) => {
-    for await (const [name, h] of (dir as unknown as { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries()) {
-      if (SKIP.has(name) || out.length >= 20000) continue;
-      const path = `${prefix}${name}`;
-      if (h.kind === "directory") {
-        if (!name.startsWith(".") || name === ".git") await walk(h as FileSystemDirectoryHandle, `${path}/`);
-        continue;
-      }
-      if (prefix.endsWith(".git/") && name !== "config") continue;
-      const wanted = FOLDER_FILES.test(name) || MANIFESTS.test(path);
-      if (wanted) out.push({ name: path, text: await (await (h as FileSystemFileHandle).getFile()).text() });
-      else if (namesToo) out.push({ name: path, text: "" });
-    }
-  };
-  await walk(root, root.name + "/");
-  return out;
-}
+/** Specs, manifests and state files are read from a picked folder; other files are listed by name (enough to detect languages). */
+const FOLDER_FILES = /\.(ya?ml|json|tfstate|xmi)$/i;
+const readFolder = async (namesToo: boolean): Promise<ImportInput[]> =>
+  ((await pickFolderTree((p) => FOLDER_FILES.test(p) || MANIFESTS.test(p))) ?? [])
+    .filter((f) => f.text !== undefined || namesToo)
+    .map((f) => ({ name: f.path, text: f.text ?? "" }));
 
 const CLI_NAME = { aws: "AWS CLI", gcloud: "gcloud", az: "Azure CLI", kubectl: "kubectl" } as const;
 const CLI_JSON = { aws: "--output json", gcloud: "--format=json", az: "-o json", kubectl: "--all-namespaces -o json" } as const;
@@ -54,6 +32,20 @@ async function readFromCli(cli: ConnectorCli, config: Record<string, string>): P
   }
   return { files, errors };
 }
+
+const GROUPS: [string, () => string, LucideIcon][] = [
+  ["code", () => t("Code and infrastructure"), FileCode2],
+  ["cloud", () => t("Cloud"), Cloud],
+  ["runtime", () => t("Runtime"), Activity],
+  ["enterprise", () => t("Enterprise tools"), Building2],
+  ["other", () => t("Other"), Puzzle],
+];
+const GROUP_OF: Record<string, string> = {
+  openapi: "code", "docker-compose": "code", kubernetes: "code", terraform: "code", backstage: "code", git: "code", github: "code",
+  aws: "cloud", gcp: "cloud", azure: "cloud", "cloud-costs": "cloud",
+  traces: "runtime",
+  servicenow: "enterprise", jira: "enterprise", "azure-devops": "enterprise", leanix: "enterprise", ardoq: "enterprise", sparx: "enterprise",
+};
 
 /**
  * Discovery connectors build a draft model from real systems. They are read-only, run only when the
@@ -106,23 +98,32 @@ export function DiscoverPage() {
   };
   return (
     <div className="flex h-full" data-testid="discover-page">
-      <nav className="panel border-r scroll" style={{ width: 260 }} aria-label={t("Connectors")}>
-        <div className="h">{t("Discovery connectors")}</div>
-        {connectors.map((x) => (
-          <div key={x.id} role="button" tabIndex={0} className={`row${x.id === c.id ? " active" : ""}`} onClick={() => (setId(x.id), setFiles([]), setConfig({}), setCliErrors([]), setPlan(undefined))} onKeyDown={(e) => e.key === "Enter" && setId(x.id)}>
-            {x.label}
-          </div>
-        ))}
+      <nav className="side border-r scroll" style={{ width: 280, paddingBottom: 12 }} aria-label={t("Connectors")}>
+        {GROUPS.map(([g, label, Icon]) => {
+          const list = connectors.filter((x) => (GROUP_OF[x.id] ?? "other") === g);
+          return list.length ? (
+            <div key={g}>
+              <div className="h flex items-center gap-2"><Icon size={12} aria-hidden /> {label()}</div>
+              {list.map((x) => (
+                <div key={x.id} role="button" tabIndex={0} className={`row${x.id === c.id ? " active" : ""}`} onClick={() => (setId(x.id), setFiles([]), setConfig({}), setCliErrors([]), setPlan(undefined))} onKeyDown={(e) => e.key === "Enter" && setId(x.id)}>
+                  {x.label}
+                </div>
+              ))}
+            </div>
+          ) : null;
+        })}
       </nav>
-      <div style={{ padding: 16, maxWidth: 760 }}>
-        <h2 style={{ marginTop: 0 }}>{c.label}</h2>
-        {c.description && <p className="muted">{c.description}</p>}
-        <p className="muted" style={{ fontSize: 12 }}>{t("Read-only: nothing is changed until you review the result and press Apply. Running it again later updates the same elements.")}</p>
+      <div className="page" style={{ maxWidth: 820, flex: 1 }}>
+        <PageHeader title={c.label} description={c.description} />
+        <div className="callout" style={{ marginBottom: 16 }}>
+          <ShieldCheck size={15} className="muted" style={{ flex: "none", marginTop: 1 }} aria-hidden />
+          <span>{t("Read-only: nothing is changed until you review the result and press Apply. Running it again later updates the same elements.")}</span>
+        </div>
         {c.cli && (
-          <div className="panel" style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 8, margin: "8px 0" }}>
+          <div className="card card-pad" style={{ marginBottom: 16 }}>
             {isTauri ? (
               <>
-                <button className="btn" disabled={busy} onClick={async () => {
+                <button className="btn primary" disabled={busy} onClick={async () => {
                   setBusy(true);
                   const r = await readFromCli(c.cli!, config).finally(() => setBusy(false));
                   setFiles([...files.filter((x) => !r.files.some((y) => y.name === x.name)), ...r.files]);
@@ -133,7 +134,7 @@ export function DiscoverPage() {
             ) : (
               <p className="muted" style={{ fontSize: 12, margin: 0 }}>
                 {t("In the browser, run these read-only commands and pick their output files below (the desktop app can run them for you):")}
-                <code style={{ display: "block", whiteSpace: "pre-wrap", marginTop: 4 }}>{c.cli.commands.map((x) => `${c.cli!.tool} ${x.join(" ")} ${CLI_JSON[c.cli!.tool]} > ${c.cli!.tool}-${x.join("-")}.json`).join("\n")}</code>
+                <code className="card" style={{ display: "block", whiteSpace: "pre-wrap", marginTop: 8, padding: 10, background: "var(--panel-2)" }}>{c.cli.commands.map((x) => `${c.cli!.tool} ${x.join(" ")} ${CLI_JSON[c.cli!.tool]} > ${c.cli!.tool}-${x.join("-")}.json`).join("\n")}</code>
               </p>
             )}
             {!!cliErrors.length && (
@@ -144,13 +145,14 @@ export function DiscoverPage() {
             )}
           </div>
         )}
+        <div className="card card-pad">
         {c.fields.map((f) =>
           f.type === "files" ? (
             <div key={f.key}>
               <div className="label">{f.label}</div>
               <div className="flex gap-2 items-center">
                 <button className="btn" onClick={async () => setFiles([...files, ...(await pickFiles(c.id === "github" ? "" : ".yaml,.yml,.json,.tfstate,.csv,.xmi,.xml", true))])}>{t("Add files…")}</button>
-                {"showDirectoryPicker" in window && <button className="btn" onClick={async () => setFiles([...files, ...(await pickFolderFiles(c.id === "git"))])}>{t("Add a folder…")}</button>}
+                {canPickFolder() && <button className="btn" onClick={async () => setFiles([...files, ...(await readFolder(c.id === "git"))])}>{t("Add a folder…")}</button>}
                 {!!files.length && <button className="btn ghost" onClick={() => setFiles([])}>{t("Clear")}</button>}
               </div>
               <ul data-testid="discover-files" style={{ margin: "6px 0", paddingLeft: 18, maxHeight: 160, overflow: "auto" }}>
@@ -176,9 +178,12 @@ export function DiscoverPage() {
             </div>
           ),
         )}
-        <button className="btn primary mt-3" disabled={busy || (needsFiles && !files.length)} onClick={() => void run()}>{busy ? t("Discovering…") : t("Discover")}</button>
+        <div className="flex mt-4">
+          <Button variant="primary" icon={Radar} disabled={busy || (needsFiles && !files.length)} onClick={() => void run()}>{busy ? t("Discovering…") : t("Discover")}</Button>
+        </div>
+        </div>
         {c.planWriteBack && (
-          <section className="panel" style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 10, marginTop: 16 }} data-testid="write-back">
+          <section className="card card-pad" style={{ marginTop: 16 }} data-testid="write-back">
             <h3 style={{ marginTop: 0 }}>{t("Write back to {name}", { name: c.label })}</h3>
             <p className="muted" style={{ fontSize: 12 }}>{t("Compares the model with the live system and lists names, descriptions and dependencies changed in the model. Nothing is sent until you pick changes and confirm. Nothing is ever deleted.")}</p>
             <button className="btn" disabled={busy} onClick={async () => {

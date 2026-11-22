@@ -3,6 +3,8 @@ import { LIFECYCLE_PHASES, type Element } from "@vastitecture/core";
 import { registry, select, set, useModel } from "../state";
 import { phaseLabel } from "../panels/Properties";
 import { t } from "../i18n";
+import { GanttChart } from "lucide-react";
+import { EmptyState, PageHeader } from "../ui";
 
 /** Distinct hues plus a pattern per phase, so phases differ in more than colour. */
 const PHASE_STYLE: Record<string, { bg: string; pattern?: string }> = {
@@ -42,34 +44,34 @@ export function RoadmapPage() {
     return known.map((k, i) => ({ phase: k.p, from: k.at, to: k.p === "endOfLife" ? Math.min(end, k.at + 180 * DAY) : known[i + 1]?.at ?? end }));
   };
   return (
-    <div style={{ padding: 16 }} data-testid="roadmap-page">
-      <div className="flex items-center gap-2" style={{ marginBottom: 10, flexWrap: "wrap" }}>
-        <h2 style={{ margin: "0 12px 0 0" }}>{t("Lifecycle roadmap")}</h2>
-        <select className="btn" aria-label={t("Owner")} value={owner} onChange={(e) => setOwner(e.target.value)}>
+    <div className="page wide" data-testid="roadmap-page">
+      <PageHeader icon={GanttChart} title={t("Lifecycle roadmap")} description={t("When each element is planned, phased in, active, phased out and retired, from the lifecycle dates in the model.")} />
+      <div className="flex items-center gap-2" style={{ marginBottom: 16, flexWrap: "wrap" }}>
+        <select className="input" style={{ width: "auto" }} aria-label={t("Owner")} value={owner} onChange={(e) => setOwner(e.target.value)}>
           <option value="">{t("All owners")}</option>
           {owners.map((o) => <option key={o}>{o}</option>)}
         </select>
-        <select className="btn" aria-label={t("Element type")} value={type} onChange={(e) => setType(e.target.value)}>
+        <select className="input" style={{ width: "auto" }} aria-label={t("Element type")} value={type} onChange={(e) => setType(e.target.value)}>
           <option value="">{t("All types")}</option>
           {types.map((ty) => <option key={ty} value={ty}>{registry.elementType(ty)?.name ?? ty}</option>)}
         </select>
-        <span className="flex items-center gap-2" aria-label={t("Legend")} style={{ marginLeft: 12, fontSize: 12 }}>
+        <span className="flex items-center gap-3 faint" aria-label={t("Legend")} style={{ marginLeft: "auto", fontSize: 12 }}>
           {LIFECYCLE_PHASES.map((p) => (
             <span key={p} className="flex items-center gap-1"><span style={{ width: 22, height: 12, background: PHASE_STYLE[p].pattern ? `${PHASE_STYLE[p].pattern}, ${PHASE_STYLE[p].bg}` : PHASE_STYLE[p].bg, border: "1px solid var(--border)" }} />{phaseLabel(p)}</span>
           ))}
         </span>
       </div>
-      {!rows.length && <p className="muted">{t("No element has lifecycle dates yet. Add them in an element's properties or the fact sheets.")}</p>}
+      {!rows.length && <EmptyState icon={GanttChart} title={t("Nothing on the roadmap yet")}>{t("No element has lifecycle dates yet. Add them in an element's properties or the fact sheets.")}</EmptyState>}
       {!!rows.length && (
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", rowGap: 6 }} role="table" aria-label={t("Lifecycle roadmap")}>
+        <div className="card card-pad" style={{ display: "grid", gridTemplateColumns: "220px 1fr", rowGap: 6 }} role="table" aria-label={t("Lifecycle roadmap")}>
           <div />
           <div style={{ position: "relative", height: 18, borderBottom: "1px solid var(--border)" }}>
             {years.map((y) => <span key={y} style={{ position: "absolute", left: `${pct(new Date(y, 0, 1).getTime())}%`, fontSize: 11 }} className="muted">{y}</span>)}
           </div>
           {rows.map((e) => (
             <div key={e.id} role="row" style={{ display: "contents" }}>
-              <button role="rowheader" className="btn ghost" style={{ justifyContent: "flex-start", overflow: "hidden" }} onClick={() => (select([e.id]), set({ page: "inventory" }))}>{e.name}</button>
-              <div role="cell" style={{ position: "relative", height: 24, background: "var(--panel-2)" }}>
+              <button role="rowheader" className="btn ghost sm" style={{ justifyContent: "flex-start", overflow: "hidden", fontWeight: 400 }} onClick={() => (select([e.id]), set({ page: "inventory" }))}>{e.name}</button>
+              <div role="cell" style={{ position: "relative", height: 26, background: "var(--panel-2)", borderRadius: 6 }}>
                 {years.map((y) => <span key={y} style={{ position: "absolute", left: `${pct(new Date(y, 0, 1).getTime())}%`, top: 0, bottom: 0, borderLeft: "1px dotted var(--border)" }} />)}
                 {segments(e).map((s) => (
                   <span key={s.phase} data-phase={s.phase} title={`${phaseLabel(s.phase)}: ${new Date(s.from).toISOString().slice(0, 10)}`}

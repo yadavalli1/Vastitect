@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
-import { searchElements, type Id } from "@vastitecture/core";
-import { app, model, registry, select, set, useApp, useModel, useRegistryVersion } from "../state";
+import { searchElements } from "@vastitecture/core";
+import { app, registry, select, set, useApp, useModel, useRegistryVersion } from "../state";
 import { createElementInView, createView, placeElement, sizeOf } from "../ops";
 import { DND_ELEMENT, DND_TYPE } from "../canvas/Canvas";
 import { focusCanvas } from "../canvas/nodes";
 import { t } from "../i18n";
+import { GripVertical, LayoutTemplate, Plus, Search } from "lucide-react";
+import { IconButton } from "../ui";
 
 function NewView({ onDone }: { onDone(): void }) {
   const packs = [...registry.packs.values()].filter((p) => p.viewpoints.length);
@@ -16,7 +18,8 @@ function NewView({ onDone }: { onDone(): void }) {
   const vp = vps.find((v) => v.id === viewpoint) ?? vps[0];
   return (
     <form
-      style={{ padding: "4px 10px 10px" }}
+      className="card card-pad"
+      style={{ margin: "0 8px 8px", padding: "4px 12px 12px" }}
       onSubmit={(e) => {
         e.preventDefault();
         createView(notation, vp?.id, name.trim() || vp?.name || t("New view"));
@@ -33,7 +36,7 @@ function NewView({ onDone }: { onDone(): void }) {
       </select>
       <label className="label" htmlFor="nv-name">{t("Name")}</label>
       <input id="nv-name" className="input" value={name} placeholder={vp?.name} onChange={(e) => setName(e.target.value)} autoFocus />
-      <div className="flex gap-2 mt-2">
+      <div className="flex gap-2 mt-3">
         <button className="btn primary" type="submit">{t("Create view")}</button>
         <button className="btn" type="button" onClick={onDone}>{t("Cancel")}</button>
       </div>
@@ -72,16 +75,16 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="panel chrome flex flex-col border-r" style={{ width: 250, minWidth: 250 }} aria-label={t("Views and palette")}>
-      <div className="flex items-center">
+    <aside className="side chrome flex flex-col border-r" style={{ width: 264, minWidth: 264 }} aria-label={t("Views and palette")}>
+      <div className="flex items-center" style={{ padding: "6px 8px 0 0" }}>
         <div className="h" style={{ flex: 1 }}>{t("Views")}</div>
-        <button className="btn ghost" aria-label={t("New view")} title={t("New view")} onClick={() => setAdding(!adding)}>＋</button>
+        <IconButton size="sm" icon={Plus} label={t("New view")} pressed={adding} onClick={() => setAdding(!adding)} />
       </div>
       {adding && <NewView onDone={() => setAdding(false)} />}
-      <nav className="scroll" style={{ maxHeight: "38%", minHeight: 60 }} aria-label={t("Views")}>
+      <nav className="scroll" style={{ maxHeight: "42%", minHeight: 60, paddingBottom: 6 }} aria-label={t("Views")}>
         {grouped.map(([notation, list]) => (
           <div key={notation}>
-            <div className="muted" style={{ padding: "4px 10px 0", fontSize: 11 }}>{registry.packs.get(notation)?.name ?? notation}</div>
+            <div className="faint" style={{ padding: "8px 16px 3px", fontSize: 11.5, fontWeight: 500 }}>{registry.packs.get(notation)?.name ?? notation}</div>
             {list.map((v) => (
               <div
                 key={v.id}
@@ -91,47 +94,51 @@ export function Sidebar() {
                 onClick={() => (set({ activeView: v.id, page: "diagram" }), select())}
                 onKeyDown={(e) => e.key === "Enter" && (set({ activeView: v.id, page: "diagram" }), select())}
               >
+                <LayoutTemplate size={14} strokeWidth={1.8} className="faint" style={{ flex: "none" }} aria-hidden />
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</span>
-                <span className="muted" style={{ marginLeft: "auto", fontSize: 11 }}>{v.nodes.length}</span>
+                <span className="faint" style={{ marginLeft: "auto", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>{v.nodes.length}</span>
               </div>
             ))}
           </div>
         ))}
         {!grouped.length && <div className="row muted">{t("No views yet")}</div>}
       </nav>
-      <div className="flex border-t" style={{ borderColor: "var(--border)" }} role="tablist">
-        <button role="tab" aria-selected={tab === "palette"} className={`btn ghost flex-1${tab === "palette" ? " on" : ""}`} onClick={() => setTab("palette")}>{t("Palette")}</button>
-        <button role="tab" aria-selected={tab === "model"} className={`btn ghost flex-1${tab === "model" ? " on" : ""}`} onClick={() => setTab("model")}>{t("Model")}</button>
+      <div style={{ padding: "8px 10px", borderTop: "1px solid var(--border)" }}>
+        <div className="tabs" role="tablist" style={{ display: "flex" }}>
+          <button role="tab" aria-selected={tab === "palette"} style={{ flex: 1 }} onClick={() => setTab("palette")}>{t("Palette")}</button>
+          <button role="tab" aria-selected={tab === "model"} style={{ flex: 1 }} onClick={() => setTab("model")}>{t("Model")}</button>
+        </div>
       </div>
       {tab === "palette" ? (
-        <div className="scroll flex-1" data-testid="palette">
+        <div className="scroll flex-1" data-testid="palette" style={{ paddingBottom: 8 }}>
           {!view && <div className="row muted">{t("Open a view to see its palette")}</div>}
           {categories.map((c) => (
             <div key={c}>
-              {c && <div className="h">{c}</div>}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, padding: "2px 8px 6px" }}>
-                {palette.filter((p) => (p.category ?? "") === c).map((p) => (
-                  <button
-                    key={p.id}
-                    className="btn"
-                    style={{ justifyContent: "flex-start", overflow: "hidden", borderLeft: `5px solid ${p.fill ?? "var(--border)"}` }}
-                    draggable
-                    title={t("Drag onto the canvas, or click to add")}
-                    data-palette={p.id}
-                    onDragStart={(e) => e.dataTransfer.setData(DND_TYPE, p.id)}
-                    onClick={() => addAtCentre(p.id)}
-                  >
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{p.icon && !p.icon.startsWith("path:") ? p.icon + " " : ""}{p.name}</span>
-                  </button>
-                ))}
-              </div>
+              {c && <div className="h" style={{ paddingTop: 10 }}>{c}</div>}
+              {palette.filter((p) => (p.category ?? "") === c).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="row palette-item"
+                  draggable
+                  title={t("Drag onto the canvas, or click to add")}
+                  data-palette={p.id}
+                  onDragStart={(e) => e.dataTransfer.setData(DND_TYPE, p.id)}
+                  onClick={() => addAtCentre(p.id)}
+                >
+                  <span className="swatch" style={{ background: p.fill ?? "var(--panel-3)" }} aria-hidden />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                  <GripVertical size={13} className="faint grip" aria-hidden />
+                </button>
+              ))}
             </div>
           ))}
         </div>
       ) : (
         <div className="flex flex-col flex-1" style={{ minHeight: 0 }}>
-          <div style={{ padding: 8 }}>
-            <input className="input" aria-label={t("Search the model")} placeholder={t("Search… (type:, tag:, owner:)")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <div style={{ padding: "2px 10px 8px", position: "relative" }}>
+            <Search size={14} className="faint" style={{ position: "absolute", left: 20, top: 9 }} aria-hidden />
+            <input className="input" style={{ paddingLeft: 30 }} aria-label={t("Search the model")} placeholder={t("Search… (type:, tag:, owner:)")} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <div className="scroll flex-1">
             {found.map((e) => (
@@ -144,8 +151,8 @@ export function Sidebar() {
                 onClick={() => select([e.id])}
                 onDoubleClick={() => view && placeElement(view.id, e.id, { x: 60, y: 60 })}
               >
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: inView.has(e.id) ? 1 : 0.75 }}>{e.name}</span>
-                <span className="muted" style={{ marginLeft: "auto", fontSize: 10, whiteSpace: "nowrap" }}>{registry.elementType(e.type)?.name ?? e.type}</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: inView.has(e.id) ? 1 : 0.7 }}>{e.name}</span>
+                <span className="faint" style={{ marginLeft: "auto", fontSize: 11, whiteSpace: "nowrap" }}>{registry.elementType(e.type)?.name ?? e.type}</span>
               </div>
             ))}
             {!found.length && <div className="row muted">{t("No elements")}</div>}
@@ -156,4 +163,3 @@ export function Sidebar() {
   );
 }
 
-export const elementName = (id: Id) => model.state.elements[id]?.name ?? id;

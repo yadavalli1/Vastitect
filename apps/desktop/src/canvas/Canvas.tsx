@@ -461,7 +461,7 @@ function Inner({ viewId }: { viewId: Id }) {
             </ViewportPortal>
           )}
           {!presenting && <Controls showInteractive={false} position="bottom-left" />}
-          {!presenting && <MiniMap pannable zoomable position="bottom-right" nodeColor="var(--muted)" maskColor="color-mix(in srgb, var(--bg) 70%, transparent)" ariaLabel={t("Minimap")} />}
+          {!presenting && <MiniMap pannable zoomable position="bottom-right" nodeColor="var(--border-strong)" nodeBorderRadius={3} maskColor="color-mix(in srgb, var(--bg) 60%, transparent)" ariaLabel={t("Minimap")} />}
         </ReactFlow>
       </CanvasContext.Provider>
       {overlay && !presenting && (

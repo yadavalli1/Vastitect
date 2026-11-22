@@ -1,7 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { files, newWorkspace, node, openView } from "./helpers";
+import { files, newWorkspace, node, openView, go } from "./helpers";
 
-const go = (page: Page, section: string) => page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: section, exact: true }).click();
 const update = (page: Page, name: string, patch: object) =>
   page.evaluate(([n, p]) => {
     const v = (window as any).__vastitecture;

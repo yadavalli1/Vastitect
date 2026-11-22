@@ -22,6 +22,7 @@ pub fn is_workspace_path(rel: &str) -> bool {
         || rel == "model/relationships.yaml"
         || ((rel.starts_with("model/elements/") || rel.starts_with("views/")) && rel.ends_with(".yaml"))
         || (rel.starts_with("adrs/") && rel.ends_with(".md"))
+        || (rel.starts_with("comments/") && rel.ends_with(".yaml"))
 }
 
 /// Resolve a workspace-relative path, refusing anything that escapes the root.
@@ -62,7 +63,7 @@ pub fn read_all(root: &Path) -> Result<BTreeMap<String, String>> {
     if settings.is_file() {
         out.insert("vastitecture.yaml".into(), fs::read_to_string(settings).map_err(err)?);
     }
-    for dir in ["model", "views", "adrs"] {
+    for dir in ["model", "views", "adrs", "comments"] {
         walk(&root.join(dir), &format!("{dir}/"), &mut out)?;
     }
     Ok(out)
@@ -143,11 +144,6 @@ fn safe_rev(rev: &str) -> bool {
     !rev.is_empty() && rev.len() <= 80 && !rev.starts_with('-') && rev.chars().all(|c| c.is_ascii_alphanumeric() || "_./~^-".contains(c)) && !rev.contains("..")
 }
 
-fn workspace_file(p: &str) -> bool {
-    p == "vastitecture.yaml"
-        || ((p.starts_with("model/") || p.starts_with("views/") || p.starts_with("comments/")) && p.ends_with(".yaml"))
-        || (p.starts_with("adrs/") && p.ends_with(".md"))
-}
 
 /// The workspace's files as they were at a revision (for comparing the model with an earlier version).
 pub fn git_files_at(root: &Path, rev: &str) -> Result<std::collections::BTreeMap<String, String>> {
@@ -156,9 +152,56 @@ pub fn git_files_at(root: &Path, rev: &str) -> Result<std::collections::BTreeMap
     }
     let list = git(root, &["ls-tree", "-r", "--name-only", rev, "--", "."]).ok_or_else(|| format!("{rev} is not a revision of this repository, or the workspace is not under Git"))?;
     let mut out = std::collections::BTreeMap::new();
-    for p in list.lines().filter(|p| workspace_file(p)) {
+    for p in list.lines().filter(|p| is_workspace_path(p)) {
         if let Some(text) = git(root, &["show", &format!("{rev}:./{p}")]) {
             out.insert(p.to_string(), text);
+        }
+    }
+    Ok(out)
+}
+
+/// One file of a folder the user picked for discovery. Text is read only for small files that connectors
+/// parse (specs, manifests, state, exports); other files are listed by name, which is enough to detect languages.
+#[derive(Serialize, Debug, PartialEq)]
+pub struct TreeFile {
+    pub path: String,
+    pub text: Option<String>,
+}
+
+const SKIP_DIRS: [&str; 9] = ["node_modules", "vendor", "dist", "build", "target", "__pycache__", ".venv", "venv", ".vastitecture"];
+const TEXT_EXT: [&str; 13] = ["yaml", "yml", "json", "tfstate", "xml", "xmi", "csv", "toml", "gradle", "mod", "md", "txt", "lock"];
+const TEXT_NAMES: [&str; 6] = ["Dockerfile", "CODEOWNERS", "Gemfile", "Makefile", "Procfile", "config"];
+
+/// Read a folder for the discovery connectors, depth-first, at most `limit` entries and 2 MB per file.
+pub fn read_tree(root: &Path, limit: usize) -> Result<Vec<TreeFile>> {
+    let base = root.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    let mut out = Vec::new();
+    let mut stack = vec![(root.to_path_buf(), format!("{base}/"))];
+    while let Some((dir, prefix)) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        let mut entries: Vec<_> = entries.flatten().collect();
+        entries.sort_by_key(|e| e.file_name());
+        for entry in entries {
+            if out.len() >= limit {
+                return Ok(out);
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let Ok(ty) = entry.file_type() else { continue };
+            let rel = format!("{prefix}{name}");
+            let in_git = prefix.ends_with(".git/");
+            if ty.is_dir() {
+                if !in_git && !SKIP_DIRS.contains(&name.as_str()) && (!name.starts_with('.') || name == ".git" || name == ".github") {
+                    stack.push((entry.path(), format!("{rel}/")));
+                }
+                continue;
+            }
+            if in_git && name != "config" {
+                continue;
+            }
+            let ext = name.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase()).unwrap_or_default();
+            let wanted = TEXT_EXT.contains(&ext.as_str()) || TEXT_NAMES.contains(&name.as_str());
+            let small = entry.metadata().map(|m| m.len() <= 2_000_000).unwrap_or(false);
+            out.push(TreeFile { path: rel, text: if wanted && small { fs::read_to_string(entry.path()).ok() } else { None } });
         }
     }
     Ok(out)
@@ -347,6 +390,30 @@ mod tests {
         assert!(git_files_at(&ws, "--output=/tmp/x").is_err());
         assert!(git_files_at(&ws, "HEAD..main").is_err());
         assert_eq!(git_log(&ws, 5).iter().map(|c| c.subject.as_str()).collect::<Vec<_>>(), vec!["first"]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_all_includes_comments_and_read_tree_skips_build_output() {
+        let dir = std::env::temp_dir().join(format!("vast-tree-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        for p in ["ws/comments", "ws/model/elements/c4/container", "repo/node_modules/x", "repo/.git/objects", "repo/k8s"] {
+            fs::create_dir_all(dir.join(p)).unwrap();
+        }
+        fs::write(dir.join("ws/vastitecture.yaml"), "format: 1\nname: A\n").unwrap();
+        fs::write(dir.join("ws/comments/01a.yaml"), "id: 01a\n").unwrap();
+        let files = read_all(&dir.join("ws")).unwrap();
+        assert!(files.contains_key("comments/01a.yaml"));
+        fs::write(dir.join("repo/k8s/app.yaml"), "kind: Deployment\n").unwrap();
+        fs::write(dir.join("repo/main.go"), "package main").unwrap();
+        fs::write(dir.join("repo/node_modules/x/index.json"), "{}").unwrap();
+        fs::write(dir.join("repo/.git/config"), "[remote]").unwrap();
+        fs::write(dir.join("repo/.git/objects/ab"), "x").unwrap();
+        let tree = read_tree(&dir.join("repo"), 100).unwrap();
+        let mut got: Vec<_> = tree.iter().map(|f| (f.path.as_str(), f.text.is_some())).collect();
+        got.sort();
+        assert_eq!(got, vec![("repo/.git/config", true), ("repo/k8s/app.yaml", true), ("repo/main.go", false)]);
+        assert_eq!(read_tree(&dir.join("repo"), 1).unwrap().len(), 1);
         let _ = fs::remove_dir_all(&dir);
     }
 

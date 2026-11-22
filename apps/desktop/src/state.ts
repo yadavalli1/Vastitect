@@ -88,6 +88,12 @@ export const useApp = create<AppState>(() => ({
 export const app = useApp;
 export const set = (p: Partial<AppState>) => useApp.setState(p);
 
+/** Show proposed changes for review. Nothing reaches the model until the user presses Apply. */
+export const openReview = (title: string, patch: ModelPatch) => set({ review: { title, patch, layoutViews: patch.layout } });
+
+/** Today's date as YYYY-MM-DD (the format lifecycle dates, ADRs and comments use). */
+export const today = () => new Date().toISOString().slice(0, 10);
+
 /** Subscribe a component to a slice of the model. The selector must return a stable reference. */
 export function useModel<T>(selector: (ws: Workspace) => T): T {
   return useSyncExternalStore(model.subscribe, () => selector(model.state));
@@ -168,7 +174,11 @@ export async function resolveConflict(path: string, take: "ours" | "theirs") {
 
 export async function openWorkspace(fs: WorkspaceFS, initial?: Workspace) {
   performance.mark("vastitecture:open-start");
-  await saving;
+  // Finish (or flush) the current workspace's save first, so a pending autosave can never write the
+  // old model into the folder being opened.
+  if (persister && app.getState().saveState === "dirty") await saveNow();
+  else await saving;
+  clearTimeout(saveTimer);
   unwatch?.();
   persister = new Persister(fs);
   const { workspace, issues } = await persister.load();

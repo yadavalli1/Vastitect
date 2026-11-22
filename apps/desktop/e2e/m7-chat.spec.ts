@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { newWorkspace, openView, state } from "./helpers";
+import { newWorkspace, openView, state, go } from "./helpers";
 
-const go = (page: import("@playwright/test").Page, section: string) => page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: section, exact: true }).click();
 
 test("assistant chat answers from the model, proposes reviewable changes and drafts a decision record", async ({ page }) => {
   const prompts: string[] = [];
@@ -18,7 +17,7 @@ test("assistant chat answers from the model, proposes reviewable changes and dra
   });
   await page.goto("/");
   await newWorkspace(page, "m7-chat", "sample");
-  await page.getByRole("button", { name: "✦ Chat" }).click();
+  await page.getByRole("button", { name: "Assistant chat" }).click();
   await expect(page.getByTestId("chat")).toContainText("The AI assistant is off.");
 
   await go(page, "Settings");

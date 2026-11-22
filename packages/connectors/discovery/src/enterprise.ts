@@ -1,6 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import type { ImportInput, ModelPatch } from "@vastitecture/plugin-sdk";
-import { Draft, csvRows, docs, type J } from "./util";
+import { Draft, docs, type J } from "./util";
+import { parseCsv } from "@vastitecture/core";
 
 /**
  * Imports from other enterprise architecture repositories: LeanIX, Ardoq and Sparx Enterprise Architect.
@@ -73,7 +74,7 @@ export function leanixToPatch(files: ImportInput[]): ModelPatch {
   };
   for (const f of files) {
     if (/\.csv$/i.test(f.name)) {
-      const [head, ...rows] = csvRows(f.text);
+      const [head, ...rows] = parseCsv(f.text);
       const col = (re: RegExp) => head?.findIndex((h) => re.test(h.trim())) ?? -1;
       const [ci, cn, ct, cd, cl, cp] = [col(/^id$/i), col(/^(display ?name|name)$/i), col(/^(type|fact ?sheet ?type)$/i), col(/^description$/i), col(/^lifecycle/i), col(/^(parent|parent ?id)$/i)];
       for (const r of rows) add({ id: ci >= 0 ? r[ci] : r[cn], name: r[cn], type: r[ct]?.replace(/\s+/g, ""), description: cd >= 0 ? r[cd] : undefined, lifecycle: cl >= 0 ? r[cl] : undefined, parentId: cp >= 0 ? r[cp] || undefined : undefined });
@@ -125,7 +126,7 @@ export function ardoqToPatch(files: ImportInput[]): ModelPatch {
   const comps: J[] = [];
   for (const f of files) {
     if (/\.csv$/i.test(f.name)) {
-      const [head, ...rows] = csvRows(f.text);
+      const [head, ...rows] = parseCsv(f.text);
       const col = (re: RegExp) => head?.findIndex((h) => re.test(h.trim())) ?? -1;
       const [ci, cn, ct, cd, cp, cs, cg] = [col(/^(_id|id|ardoq id)$/i), col(/^name$/i), col(/^(type|component type)$/i), col(/^description$/i), col(/^parent/i), col(/^source/i), col(/^target/i)];
       if (cs >= 0 && cg >= 0) for (const r of rows) refs.push({ source: r[cs], target: r[cg], type: ct >= 0 ? r[ct] : undefined });

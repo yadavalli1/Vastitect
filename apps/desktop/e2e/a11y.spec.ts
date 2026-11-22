@@ -1,12 +1,11 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
-import { newWorkspace, openView } from "./helpers";
+import { newWorkspace, openView, go } from "./helpers";
 
 test.use({ bypassCSP: true }); // the app's CSP (rightly) refuses injected scripts; this lets the checker in for the test only
 
 const axeSource = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
-const go = (page: Page, section: string) => page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: section, exact: true }).click();
 
 async function scan(page: Page, where: string) {
   await page.addScriptTag({ content: axeSource });

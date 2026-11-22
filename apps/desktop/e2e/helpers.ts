@@ -15,7 +15,7 @@ export const files = (page: Page, ws: string) =>
   }, `vastitecture/ws/${ws}/`);
 
 export async function newWorkspace(page: Page, name: string, template: "blank" | "sample" = "blank") {
-  await page.getByRole("button", { name: /Vastitecture ·/ }).click();
+  await page.getByRole("button", { name: /^Workspace:/ }).click();
   const dialog = page.getByRole("dialog", { name: "Workspace" });
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Template").selectOption(template);
@@ -47,7 +47,7 @@ export async function connectNodes(page: Page, from: string, to: string) {
 }
 
 export async function pasteImport(page: Page, text: string) {
-  await page.getByRole("button", { name: "Paste", exact: true }).click();
+  await importMenu(page, "Paste text…");
   await page.getByLabel("Text to import").fill(text);
   await page.getByRole("dialog", { name: "Import from pasted text" }).getByRole("button", { name: "Import", exact: true }).click();
   await expect(page.getByTestId("review")).toBeVisible();
@@ -69,4 +69,19 @@ export async function downloadText(page: Page, action: () => Promise<unknown>): 
   const [d] = await Promise.all([page.waitForEvent("download"), action()]);
   const bytes = Buffer.concat(await (await d.createReadStream()).toArray());
   return { name: d.suggestedFilename(), text: bytes.toString("utf8"), bytes };
+}
+
+/** Open a section from the navigation rail. */
+export const go = (page: Page, section: string) => page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: section, exact: true }).click();
+
+/** Choose an item from the title bar's Import menu (opening a file chooser for "Import files…"). */
+export async function importMenu(page: Page, item: "Import files…" | "Paste text…") {
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await page.getByRole("menuitem", { name: item }).click();
+}
+
+/** Choose an exporter from the title bar's Export menu. */
+export async function exportMenu(page: Page, item: string) {
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByRole("menuitem", { name: item, exact: true }).click();
 }

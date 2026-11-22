@@ -1,4 +1,4 @@
-import { presentationType, type ExportResult, type View, type Workspace } from "@vastitecture/core";
+import { presentationType, slugify, type ExportResult, type View, type Workspace } from "@vastitecture/core";
 import { activate, definePlugin } from "@vastitecture/plugin-sdk";
 import { LIGHT, markdownToHtml, viewToSvg } from "@vastitecture/render";
 import { svgToPdfPage, writePdf, writeVectorPdf } from "@vastitecture/io-formats";
@@ -8,7 +8,7 @@ import { hostServices, registry } from "./plugins";
  * Exporters that need the renderer and the full registry (every installed notation's shapes), so they
  * run in the app rather than in a worker. They still register through the plugin API.
  */
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "view";
+const slug = (s: string) => slugify(s) || "view";
 const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const mdCell = (s: unknown) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
 

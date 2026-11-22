@@ -3,8 +3,8 @@ import { STARTER_RULES, checkRules, parseRules, rulesFromYaml, rulesToYaml } fro
 import { dispatch, useModel } from "../state";
 import { goToProblem } from "../panels/Problems";
 import { t } from "../i18n";
-
-const ICON = { error: "⛔", warning: "⚠", info: "ℹ" };
+import { ListChecks } from "lucide-react";
+import { EmptyState, PageHeader, SeverityIcon } from "../ui";
 
 /**
  * Architecture rules: checks written as data in vastitecture.yaml. The same rules run here, in the
@@ -28,24 +28,29 @@ export function RulesPage() {
   };
   const failing = results.filter((r) => r.problems.length).length;
   return (
-    <div style={{ padding: 16, maxWidth: 980 }} data-testid="rules-page">
-      <h2 style={{ marginTop: 0 }}>{t("Architecture rules")}</h2>
-      <p className="muted">
-        {t("Rules are stored in vastitecture.yaml, so changes to them are reviewed like any other change. Violations appear in the Problems panel while you edit, and the command-line tool enforces them in CI (see docs/CLI.md).")}
-      </p>
+    <div className="page" data-testid="rules-page">
+      <PageHeader icon={ListChecks} title={t("Architecture rules")} description={t("Rules are stored in vastitecture.yaml, so changes to them are reviewed like any other change. Violations appear in the Problems panel while you edit, and the command-line tool enforces them in CI (see docs/CLI.md).")} />
       {!ws.rules.length && text === undefined && (
-        <p>
-          <button className="btn primary" onClick={() => dispatch({ type: "setSettings", patch: { rules: STARTER_RULES } }, t("Add starter rules"))}>{t("Add starter rules")}</button>{" "}
-          <button className="btn" onClick={() => setText("")}>{t("Write my own")}</button>
-        </p>
+        <EmptyState
+          icon={ListChecks}
+          title={t("No rules yet")}
+          action={
+            <div className="flex gap-2" style={{ justifyContent: "center" }}>
+              <button className="btn primary" onClick={() => dispatch({ type: "setSettings", patch: { rules: STARTER_RULES } }, t("Add starter rules"))}>{t("Add starter rules")}</button>
+              <button className="btn" onClick={() => setText("")}>{t("Write my own")}</button>
+            </div>
+          }
+        >
+          {t("Start with five common rules (owners, descriptions, no dependencies on retiring systems, no shared databases, limited fan-out) and adjust them, or write your own.")}
+        </EmptyState>
       )}
       {!!ws.rules.length && <p data-testid="rules-summary">{t("{count} rule(s), {failing} with violations", { count: results.length, failing })}</p>}
       {broken.map((p) => <p key={p.message} className="sev-error" role="alert">{p.message}</p>)}
-      <table className="grid" style={{ width: "100%" }}>
+      {!!results.length && <table className="data-table" style={{ width: "100%" }}>
         <tbody>
           {results.map(({ rule, checked, problems }) => (
             <tr key={rule.id} data-testid={`rule-${rule.id}`}>
-              <td style={{ width: 24 }}>{problems.length ? ICON[rule.severity] : "✓"}</td>
+              <td style={{ width: 32 }}><SeverityIcon level={problems.length ? rule.severity : "ok"} /></td>
               <td>
                 <strong>{rule.description ?? rule.id}</strong> <span className="muted" style={{ fontSize: 11 }}>{rule.id}</span>
                 {open === rule.id && (
@@ -63,9 +68,9 @@ export function RulesPage() {
             </tr>
           ))}
         </tbody>
-      </table>
-      <h3>{t("Edit rules")}</h3>
-      {text === undefined ? (
+      </table>}
+      {(!!ws.rules.length || text !== undefined) && <h3>{t("Edit rules")}</h3>}
+      {text === undefined ? (!!ws.rules.length &&
         <button className="btn" onClick={() => setText(rulesToYaml(ws.rules))}>{t("Edit as YAML")}</button>
       ) : (
         <>

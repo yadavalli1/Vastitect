@@ -13,7 +13,7 @@ import {
   type View,
   type ViewNode,
 } from "@vastitecture/core";
-import { DARK, LIGHT, absoluteRects, hiddenNodes, viewToSvg } from "@vastitecture/render";
+import { DARK, LIGHT, hiddenNodes, viewToSvg } from "@vastitecture/render";
 import { createElkEngines } from "@vastitecture/layout";
 import ELK from "elkjs/lib/elk-api.js";
 import ElkWorker from "elkjs/lib/elk-worker.min.js?worker";
@@ -341,11 +341,6 @@ export async function exportSvg(viewId: Id) {
 }
 export async function exportPng(viewId: Id) {
   await saveFile(`${fileBase(viewId)}.png`, await svgToPng(svgOf(viewId)), "image/png");
-}
-
-/** Absolute position of a node in a view (stored positions are parent-relative). */
-export function absolutePosition(view: View, element: Id) {
-  return absoluteRects(view).get(element);
 }
 
 export function renameElement(id: Id, name: string) {

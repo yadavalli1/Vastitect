@@ -2,8 +2,10 @@ import { useState } from "react";
 import { draftModel, explainView, reviewModel, suggestRelationships, translateView } from "@vastitecture/ai";
 import { markdownToHtml } from "@vastitecture/render";
 import { aiConfig, aiFetch, useAiSettings } from "../ai";
-import { model, registry, set, useApp, useModel, useRegistryVersion } from "../state";
+import { model, registry, set, useApp, useModel, useRegistryVersion, openReview } from "../state";
 import { t } from "../i18n";
+import { Info, MessageSquare, Sparkles } from "lucide-react";
+import { PageHeader } from "../ui";
 
 /** The optional assistant. Proposals go to the review dialog; explanations are shown here. Nothing is applied silently. */
 export function AssistantPage() {
@@ -30,21 +32,24 @@ export function AssistantPage() {
       setBusy(undefined);
     }
   };
-  const review = (title: string, patch: import("@vastitecture/core").ModelPatch) => set({ review: { title, patch, layoutViews: patch.layout } });
+  const review = openReview;
   return (
-    <div style={{ padding: 16, maxWidth: 900 }} data-testid="assistant-page">
-      <h2 style={{ marginTop: 0 }}>{t("Assistant")}</h2>
+    <div className="page" data-testid="assistant-page">
+      <PageHeader
+        icon={Sparkles}
+        title={t("Assistant")}
+        description={t("Draft models from text, explain and review views, and translate between notations. Every change is shown for review first.")}
+        actions={<button className="btn" title={t("Ask questions about the model, ask for changes in plain words, or draft a decision record about the selection.")} onClick={() => set({ page: "diagram", chatOpen: true })}><MessageSquare size={14} aria-hidden /> {t("Open the chat beside the canvas")}</button>}
+      />
       {!ai.enabled && (
-        <p className="panel" style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 10 }}>
-          {t("The AI assistant is off.")} <button className="btn" onClick={() => set({ page: "settings" })}>{t("Set it up in Settings")}</button>
-          <br />
-          <span className="muted">{t("Translating a view into another notation below works without it.")}</span>
-        </p>
+        <div className="callout" style={{ alignItems: "center" }}>
+          <Info size={16} className="muted" style={{ flex: "none" }} aria-hidden />
+          <div style={{ flex: 1 }}>
+            <strong>{t("The AI assistant is off.")}</strong> <span className="muted">{t("Translating a view into another notation below works without it.")}</span>
+          </div>
+          <button className="btn" onClick={() => set({ page: "settings" })}>{t("Set it up in Settings")}</button>
+        </div>
       )}
-      <p>
-        <button className="btn" onClick={() => set({ page: "diagram", chatOpen: true })}>✦ {t("Open the chat beside the canvas")}</button>{" "}
-        <span className="muted">{t("Ask questions about the model, ask for changes in plain words, or draft a decision record about the selection.")}</span>
-      </p>
       <section>
         <h3>{t("Draft a model from a description")}</h3>
         <textarea className="input" aria-label={t("Description or document")} style={{ minHeight: 120 }} placeholder={t("Describe a system, or paste a design document…")} value={text} onChange={(e) => setText(e.target.value)} />

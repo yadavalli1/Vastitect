@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { applyReview, downloadText, newWorkspace, node, openView, pasteImport, state } from "./helpers";
+import { applyReview, downloadText, newWorkspace, node, openView, pasteImport, state, exportMenu } from "./helpers";
 
 /** The published "advanced" DSL template from the create-structurizr npm package. */
 function publishedDsl() {
@@ -44,7 +44,7 @@ test("a published Structurizr DSL sample imports, lays itself out and exports ba
   await expect(node(page, "Database")).toBeVisible();
 
   // export back to DSL: every element and relationship is still there
-  const out = await downloadText(page, () => page.getByLabel("Export", { exact: true }).selectOption({ label: "Structurizr DSL" }));
+  const out = await downloadText(page, () => exportMenu(page, "Structurizr DSL"));
   expect(out.name).toMatch(/\.dsl$/);
   for (const s of ['person "Customer"', 'person "Employee"', 'softwareSystem "My Software System"', 'container "Web App"', 'container "API"', 'container "Database"', '-> mySoftwareSystem.api "Calls"', '"Reads from and writes to"', '"Uses"', '"Manages"'])
     expect(out.text).toContain(s);

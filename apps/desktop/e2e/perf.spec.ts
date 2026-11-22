@@ -25,12 +25,13 @@ test("performance budget: open 5,000 elements / 200 views, lay out and pan a 300
     localStorage.setItem("vastitecture/last", "perf");
   }, files);
   await page.reload();
-  await expect(page.getByRole("button", { name: /Vastitecture · Big/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: /^Workspace: Big/ })).toBeVisible({ timeout: 30_000 });
   const open = await page.evaluate(() => performance.getEntriesByName("vastitecture:open").at(-1)!.duration);
 
   await page.evaluate((id) => (window as any).__vastitecture.app.setState({ activeView: id, page: "diagram" }), big.id);
   await expect(page.locator(".react-flow__node")).toHaveCount(300, { timeout: 30_000 });
-  await page.getByLabel("Auto-layout").selectOption({ label: "Layered" });
+  await page.getByRole("button", { name: "Auto-layout" }).click();
+  await page.getByRole("menuitem", { name: "Layered" }).click();
   await expect.poll(() => page.evaluate(() => performance.getEntriesByName("vastitecture:layout").length), { timeout: 30_000 }).toBeGreaterThan(0);
   const layout = await page.evaluate(() => performance.getEntriesByName("vastitecture:layout").at(-1)!.duration);
 
