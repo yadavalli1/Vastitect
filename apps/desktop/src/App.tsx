@@ -1,4 +1,3 @@
-import { ChatPanel } from "./panels/Chat";
 import { Fragment, Suspense, lazy, useEffect, useState } from "react";
 import {
   AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceAround, AlignStartHorizontal, AlignStartVertical,
@@ -26,6 +25,7 @@ import { importFiles, importInputs, runExporter } from "./io";
 import { Modal } from "./panels/Dialogs";
 
 const LazyCode = lazy(() => import("./panels/CodePane"));
+const ChatPanel = lazy(async () => ({ default: (await import("./panels/Chat")).ChatPanel }));
 extensions.codePane = ({ viewId }) => (
   <Suspense fallback={<div className="panel border-l" style={{ width: "40%", padding: 12 }}>{t("Loading editor…")}</div>}>
     <LazyCode key={viewId} viewId={viewId} />
@@ -308,7 +308,7 @@ export function App() {
               </div>
               {s.problemsOpen && !s.presenting && <Problems problems={problems} />}
             </main>
-            {!s.presenting && (s.chatOpen ? <ChatPanel /> : <Properties />)}
+            {!s.presenting && (s.chatOpen ? <Suspense fallback={<aside className="side border-l" style={{ width: 340 }} />}><ChatPanel /></Suspense> : <Properties />)}
           </>
         )}
       </div>

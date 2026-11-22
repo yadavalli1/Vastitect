@@ -6,7 +6,7 @@ import { aiConfig, aiFetch, useAiSettings } from "../ai";
 import { model, registry, set, useApp, openReview, today } from "../state";
 import { t } from "../i18n";
 import { Sparkles, X } from "lucide-react";
-import { IconButton } from "../ui";
+import { EmptyState, IconButton } from "../ui";
 
 interface Entry extends ChatTurn {
   patch?: ModelPatch;
@@ -74,9 +74,10 @@ export function ChatPanel() {
         <IconButton size="sm" icon={X} label={t("Close")} onClick={() => set({ chatOpen: false })} />
       </div>
       {!ai.enabled ? (
-        <div style={{ padding: 12 }}>
-          <p>{t("The AI assistant is off.")}</p>
-          <button className="btn" onClick={() => set({ page: "settings" })}>{t("Set it up in Settings")}</button>
+        <div style={{ padding: 16 }}>
+          <EmptyState icon={Sparkles} title={t("The AI assistant is off.")} action={<button className="btn primary" onClick={() => set({ page: "settings" })}>{t("Set it up in Settings")}</button>}>
+            {t("Connect any OpenAI-compatible endpoint, including a local model, to ask questions about the model and propose changes for review.")}
+          </EmptyState>
         </div>
       ) : (
         <>

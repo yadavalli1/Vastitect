@@ -117,6 +117,7 @@
   "Concept name": "Concept name",
   "Conflicting edit: {path}": "Conflicting edit: {path}",
   "Connect": "Connect",
+  "Connect any OpenAI-compatible endpoint, including a local model, to ask questions about the model and propose changes for review.": "Connect any OpenAI-compatible endpoint, including a local model, to ask questions about the model and propose changes for review.",
   "Connectors": "Connectors",
   "Contacts these hosts when you run it: {hosts}": "Contacts these hosts when you run it: {hosts}",
   "Context: the whole model": "Context: the whole model",

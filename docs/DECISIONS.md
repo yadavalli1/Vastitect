@@ -170,3 +170,20 @@ exports PDF and SVG too.
 `e2e/a11y.spec.ts` runs axe-core (WCAG 2.0/2.1 A and AA rules) over nine screens in both themes. The
 test bypasses the app's Content Security Policy only to inject the checker. A manual screen-reader pass is
 still needed: automated checks find roughly a third of real-world problems.
+
+## D-38 One design system, built on tokens and a few primitives
+Colours, type, radii, shadows and focus rings are CSS variables (light and dark) in `styles.css`; the
+shared React pieces live in `src/ui.tsx` (Button, IconButton with tooltip, Menu, PageHeader,
+EmptyState, Tabs, SeverityIcon). Menus, tooltips and dialogs use Radix primitives for keyboard and
+screen-reader behaviour; icons come from lucide (tree-shaken, MIT). Colour is never the only signal
+(icons differ in shape, overlays carry text badges), and the axe checks in CI hold every screen to
+WCAG 2.1 AA in both themes.
+
+## D-39 Menus are non-modal
+Radix menus default to modal, which disables pointer events on the page. Opening a dialog from a menu
+item could then leave the page unclickable. Menus are non-modal; dialogs remain modal.
+
+## D-40 Unreadable files are never rewritten
+The persister remembers files that failed to load (bad YAML, Git conflict markers) and neither
+rewrites nor deletes them until a later load reads them cleanly. Previously the next autosave
+removed them, losing the user's merge in progress.
