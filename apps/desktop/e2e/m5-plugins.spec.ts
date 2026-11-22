@@ -59,12 +59,15 @@ test("a plugin is refused when not approved, and sandboxed code cannot reach the
   await expect(page.locator('[data-plugin="acme.sneaky"]')).toHaveCount(0);
 
   // inside a plugin worker, fetch and XMLHttpRequest are gone before plugin code runs
-  const globals = await page.evaluate(async () => {
+  await page.evaluate(() => {
     const code = `export default { activate(ctx) { ctx.validators.register({ id: "probe", run: () => [{ code: "probe", severity: "info", message: [typeof fetch, typeof XMLHttpRequest, typeof WebSocket, typeof importScripts].join(","), target: { kind: "workspace" } }] }); } };`;
     const manifest = JSON.stringify({ id: "acme.probe", name: "Probe", version: "1.0.0", apiVersion: "1.0.0", capabilities: ["validator"] });
-    localStorage.setItem("vastitecture/plugins/approved", JSON.stringify([`acme.probe|validator|{}`]));
+    (window as any).__probe = (window as any).__vastitecture.installPlugin(manifest, code);
+  });
+  await page.getByRole("button", { name: "Allow", exact: true }).click();
+  const globals = await page.evaluate(async () => {
     const h = (window as any).__vastitecture;
-    await h.installPlugin(manifest, code);
+    await (window as any).__probe;
     const v = h.registry.validators.get("probe");
     return (await v.run(h.model.state))[0].message;
   });
