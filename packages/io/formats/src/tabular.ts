@@ -16,35 +16,10 @@ export function inventoryTable(ws: Workspace): Table {
   };
 }
 
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  const src = text.replace(/^﻿/, "");
-  const sep = (/^[^\n]*;/.test(src) && !/^[^\n]*,/.test(src)) ? ";" : ",";
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i];
-    if (quoted) {
-      if (c === '"' && src[i + 1] === '"') (cell += '"'), i++;
-      else if (c === '"') quoted = false;
-      else cell += c;
-    } else if (c === '"') quoted = true;
-    else if (c === sep) row.push(cell), (cell = "");
-    else if (c === "\n" || c === "\r") {
-      if (c === "\r" && src[i + 1] === "\n") i++;
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = "";
-    } else cell += c;
-  }
-  if (cell || row.length) row.push(cell), rows.push(row);
-  return rows.filter((r) => r.some((x) => x.trim()));
-}
+export { parseCsv } from "@vastitecture/core";
+import { parseCsv } from "@vastitecture/core";
 
-const csvCell = (v: string | number) => (/[",\n\r;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-export const tableToCsv = (t: Table) => [t.columns, ...t.rows].map((r) => r.map(csvCell).join(",")).join("\n") + "\n";
+export { tableToCsv } from "@vastitecture/core";
 
 /**
  * Bulk inventory edit: rows are matched to elements by id, else by type + name; unmatched rows with a

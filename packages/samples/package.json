@@ -1,0 +1,9 @@
+{
+  "name": "@vastitecture/samples",
+  "version": "0.3.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Sample workspaces for different industries, modelled once and shown in C4, ArchiMate, DDD and TOGAF.",
+  "main": "src/index.ts",
+  "dependencies": { "@vastitecture/core": "workspace:*" }
+}

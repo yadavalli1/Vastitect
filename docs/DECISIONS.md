@@ -54,7 +54,7 @@ panel only; richer interactive plugin UI is a later step.
 ## D-16 Renderer-dependent exporters run in the app
 PDF, the static HTML site and Markdown docs need the SVG renderer and every installed notation's
 shapes, so they register (through the same plugin API) in the app rather than in the worker.
-PDF pages are high-resolution JPEGs of each view, not vector graphics.
+PDF pages were high-resolution JPEGs of each view; see D-36 for the vector PDF that replaced them as the default.
 
 ## D-17 The `ulid` package was replaced
 It refuses to run in workers. `newId()` now generates ULIDs with `crypto.getRandomValues`.
@@ -86,3 +86,104 @@ about four times faster. Both use the JSON schema subset, so they agree.
 ## D-23 Updater artifacts are opt-in
 `createUpdaterArtifacts` is off in `tauri.conf.json` so local and unsigned builds work. The release
 workflow turns it on when the `TAURI_SIGNING_PRIVATE_KEY` secret exists.
+
+## D-24 Google Cloud and Azure use their CLIs; ServiceNow uses its REST Table API
+Same reasoning as D-21: the desktop app runs an allow-list of read-only `list`/`describe`/`show` commands
+with the user's own `gcloud` or `az` sign-in (`cloud_cli` in the Rust shell rejects anything else and only
+accepts `--project`, `--subscription`, `--profile` and `--region` flags). ServiceNow has no comparable CLI,
+so the connector calls the Table API directly through the plugin's permission-checked `net.fetch`, limited to
+`*.service-now.com` and `*.servicenowservices.com`. Its password or OAuth token is stored only in the OS
+keychain. Browsers block those requests (CORS), so the web build imports Table API JSON or list CSV exports
+instead. All three are read-only; CMDB write-back is not built.
+
+## D-25 Architecture rules are declarative data
+Rules are YAML in `vastitecture.yaml` (selectors plus `require`, `forbid` and fan-in/fan-out limits)
+rather than scripts, so they can be reviewed in a pull request, run identically in the app and in CI,
+and never execute code from a workspace. Rules are stored raw and validated when checked, so one broken
+rule is reported as a problem without stopping the workspace from loading. The starter set lives with the
+other notation-aware defaults in `core/defaults.ts`.
+
+## D-26 The command-line tool is a single bundled file
+`@vastitecture/cli` bundles the core, notations and exporters with esbuild into
+`packages/cli/dist/vastitecture.mjs`, which runs on plain Node 20+. Discovery connectors are left out so
+the CLI never reaches the network.
+
+## D-27 Traces are compared with the model, not imported over it
+The trace connector matches observed services to existing runnable elements (containers, components,
+systems, application components, nodes) by normalised name or a `service` property. It proposes only
+relationships that are missing, never edits or deletes existing ones, and lists modelled dependencies
+that were not observed in its report for a person to judge: a quiet week of traces is not proof that a
+dependency is gone. Datadog is read live (API and application keys in the keychain); Jaeger, Zipkin and
+OpenTelemetry are read from exported JSON because their query endpoints are self-hosted.
+
+## D-28 Work items annotate elements; they do not become elements
+Jira issues and Azure DevOps work items are linked to the elements they change (by label, tag,
+component or area path matching an element's name, or its `workItemKey` property). Matched elements
+get links and a delivery-status property; no elements are created, so the model stays about
+architecture, not backlog.
+
+## D-29 Other EA tools are imported into ArchiMate
+LeanIX, Ardoq and Sparx EA content is mapped to ArchiMate 4 types with a stable `externalId`, so a
+second import updates the first. Ardoq types are user-defined and therefore mapped by keyword; anything
+unrecognised is listed in the report rather than guessed. Sparx models that are already ArchiMate should
+use the Open Exchange importer instead of XMI.
+
+## D-30 kubectl is limited to `get`
+The desktop shell runs `kubectl get <resources> -o json` only, with `--context`/`--namespace` as the only
+flags, and refuses any resource list that includes secrets.
+
+## D-31 Write-back is planned live, picked by the user, and never deletes
+Connectors may offer `planWriteBack` and `applyWriteBack`. For ServiceNow the plan reads the CMDB as it
+is now and lists renames, description changes and missing "Depends on::Used by" relationships between
+CIs that came from ServiceNow. The user ticks the changes and confirms a second time before anything is
+sent. Each item carries the exact request that will be sent, and the connector refuses requests outside
+`cmdb_ci` and `cmdb_rel_ci`. Deleting CIs or relationships is deliberately not offered. Owner and lifecycle
+are not written: they are reference and choice fields whose values differ per instance.
+
+## D-32 Plateaus are derived from lifecycle dates
+Rather than maintaining separate as-is and to-be copies of the model, the state on a date is computed
+from each element's lifecycle dates. The migration view generated from it (ArchiMate plateaus aggregating
+the elements) is a normal, reviewable patch.
+
+## D-33 Data exposure stops at boundaries
+Classified data is followed along relationships in both directions (requests and answers), except where a
+relationship is marked `dataFlow: none`. An element cleared for a lower classification, or marked
+external, is reported and not traversed further, so one finding does not cascade into dozens.
+
+## D-34 Comments are one file per comment
+`comments/<id>.yaml` keeps concurrent comments from conflicting in Git. Ids are ULIDs, so files sort by
+time. Deleting an element deletes its comments; deleting a comment deletes its replies.
+
+## D-35 Comparing versions reads Git through the shell
+The desktop shell returns the workspace's files at a revision (`git ls-tree` and `git show`), refusing
+revision names that look like options or ranges. The comparison itself is `diffWorkspaces` in core, the
+same function the CLI's `diff` command uses.
+
+## D-36 Vector PDF without a PDF library
+The renderer writes a small, known subset of SVG, so `io-formats/vectorpdf.ts` converts that subset to
+PDF operators directly (arcs to Béziers, opacity through ExtGState) and uses the standard Helvetica fonts
+without embedding. Text is selectable and searchable; characters outside Windows-1252 print as "?".
+Image-based PDFs remain available as "PDF as an image". Because the converter needs no browser, the CLI
+exports PDF and SVG too.
+
+## D-37 Accessibility is checked by axe in CI
+`e2e/a11y.spec.ts` runs axe-core (WCAG 2.0/2.1 A and AA rules) over nine screens in both themes. The
+test bypasses the app's Content Security Policy only to inject the checker. A manual screen-reader pass is
+still needed: automated checks find roughly a third of real-world problems.
+
+## D-38 One design system, built on tokens and a few primitives
+Colours, type, radii, shadows and focus rings are CSS variables (light and dark) in `styles.css`; the
+shared React pieces live in `src/ui.tsx` (Button, IconButton with tooltip, Menu, PageHeader,
+EmptyState, Tabs, SeverityIcon). Menus, tooltips and dialogs use Radix primitives for keyboard and
+screen-reader behaviour; icons come from lucide (tree-shaken, MIT). Colour is never the only signal
+(icons differ in shape, overlays carry text badges), and the axe checks in CI hold every screen to
+WCAG 2.1 AA in both themes.
+
+## D-39 Menus are non-modal
+Radix menus default to modal, which disables pointer events on the page. Opening a dialog from a menu
+item could then leave the page unclickable. Menus are non-modal; dialogs remain modal.
+
+## D-40 Unreadable files are never rewritten
+The persister remembers files that failed to load (bad YAML, Git conflict markers) and neither
+rewrites nor deletes them until a later load reads them cleanly. Previously the next autosave
+removed them, losing the user's merge in progress.

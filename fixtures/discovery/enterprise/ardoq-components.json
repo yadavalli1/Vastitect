@@ -1,0 +1,7 @@
+{"values":[
+ {"_id":"c-1","name":"Checkout Service","type":"Microservice","description":"Takes payments"},
+ {"_id":"c-2","name":"Payments","type":"Business Capability"},
+ {"_id":"c-3","name":"k8s-prod","type":"Cluster"},
+ {"_id":"c-4","name":"Cart","type":"Microservice","parent":"c-1"},
+ {"_id":"c-5","name":"Mystery","type":"Widget"}
+]}

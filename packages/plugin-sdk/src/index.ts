@@ -68,13 +68,33 @@ export interface Plugin {
 
 export const definePlugin = <P extends Plugin>(plugin: P): P => plugin;
 
+/** Options for a host network call. `allowHosts` is set by the host, never by plugin code: redirects must stay within it. */
+export type HostFetchInit = { method?: string; headers?: Record<string, string>; body?: string; allowHosts?: string[] };
+
 export interface HostServices {
-  fetch?: PluginContext["net"]["fetch"];
+  fetch?: (url: string, init?: HostFetchInit) => Promise<NetResponse>;
   getSecret?: PluginContext["secrets"]["get"];
   log?: (...args: unknown[]) => void;
 }
 
 export class PermissionError extends Error {}
+
+/** True when `host` matches one of a manifest's network entries: an exact name, `*`, or `*.suffix`. */
+export function hostAllowed(allowed: readonly string[], host: string): boolean {
+  return allowed.some((h) => h === "*" || h === host || (h.startsWith("*.") && host.endsWith(h.slice(1))));
+}
+
+/** The request options a plugin may set: method, string headers and a string body. Anything else is dropped. */
+export function fetchInit(init: unknown): { method?: string; headers?: Record<string, string>; body?: string } {
+  if (!init || typeof init !== "object") return {};
+  const i = init as Record<string, unknown>;
+  const out: { method?: string; headers?: Record<string, string>; body?: string } = {};
+  if (typeof i.method === "string") out.method = i.method;
+  if (typeof i.body === "string") out.body = i.body;
+  if (i.headers && typeof i.headers === "object") out.headers = Object.fromEntries(Object.entries(i.headers as Record<string, unknown>).filter(([, v]) => typeof v === "string")) as Record<string, string>;
+  return out;
+}
+
 
 export function checkApiVersion(manifest: PluginManifest) {
   const major = (v: string) => v.split(".")[0];
@@ -109,10 +129,9 @@ export function createContext(manifest: PluginManifest, registry: Registry, serv
       async fetch(url, init) {
         const host = new URL(url).hostname;
         const allowed = manifest.permissions?.network ?? [];
-        if (!allowed.some((h) => h === "*" || h === host || (h.startsWith("*.") && host.endsWith(h.slice(1)))))
-          throw new PermissionError(`Plugin ${manifest.id} is not allowed to contact ${host}`);
+        if (!hostAllowed(allowed, host)) throw new PermissionError(`Plugin ${manifest.id} is not allowed to contact ${host}`);
         if (!services.fetch) throw new Error("Network access is not available");
-        return services.fetch(url, init);
+        return services.fetch(url, { ...fetchInit(init), allowHosts: [...allowed] });
       },
     },
     secrets: {

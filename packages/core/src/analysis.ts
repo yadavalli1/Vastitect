@@ -73,12 +73,3 @@ export function gapQuery(ws: Workspace, q: GapQuery, types?: Set<string>): Query
   return { title: q.label, summary: `${rows.length} element(s).`, rows };
 }
 
-/** Elements whose end-of-life date has passed or falls before `until`, oldest first. */
-export function retiringBefore(ws: Workspace, until: string): Element[] {
-  return Object.values(ws.elements)
-    .filter((e) => {
-      const d = e.lifecycle?.dates?.endOfLife ?? e.lifecycle?.dates?.phaseOut;
-      return d !== undefined && d <= until;
-    })
-    .sort((a, b) => String(a.lifecycle!.dates!.endOfLife ?? a.lifecycle!.dates!.phaseOut).localeCompare(String(b.lifecycle!.dates!.endOfLife ?? b.lifecycle!.dates!.phaseOut)));
-}

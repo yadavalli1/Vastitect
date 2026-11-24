@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.1" xmlns:uml="http://schema.omg.org/spec/UML/2.1" xmlns:xmi="http://schema.omg.org/spec/XMI/2.1">
+  <uml:Model xmi:type="uml:Model" name="EA_Model" xmi:id="m1">
+    <packagedElement xmi:type="uml:Package" xmi:id="p1" name="Shop">
+      <packagedElement xmi:type="uml:Component" xmi:id="e1" name="Order API">
+        <ownedComment xmi:type="uml:Comment" xmi:id="k1" body="Takes orders"/>
+        <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="ir1" supplier="e3" client="e1" contract="e3"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Component" xmi:id="e2" name="Order DB"/>
+      <packagedElement xmi:type="uml:Interface" xmi:id="e3" name="Orders REST"/>
+      <packagedElement xmi:type="uml:Node" xmi:id="e4" name="App Server"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="e5" name="Order"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="e6" name="Special Order">
+        <generalization xmi:type="uml:Generalization" xmi:id="g1" general="e5"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:UseCase" xmi:id="e7" name="Place order"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="d1" client="e1" supplier="e2" name="reads and writes"/>
+      <packagedElement xmi:type="uml:Usage" xmi:id="d2" client="e1" supplier="e4"/>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>

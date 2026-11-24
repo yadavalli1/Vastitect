@@ -461,7 +461,10 @@ export function parseDsl(text: string): ModelPatch {
   return { elements, relationships, views, layout: views.map((v) => v.id), report };
 }
 
-const q = (s: string | undefined) => `"${(s ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " ")}"`;
+/** Any line terminator, including the ones a DSL reader may split on besides \n. */
+const LINE_BREAKS = /[\r\n\u000b\u000c\u0085\u2028\u2029]+/g;
+const oneLine = (s: string | undefined) => (s ?? "").replace(LINE_BREAKS, " ");
+const q = (s: string | undefined) => `"${oneLine(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
 function trimArgs(args: (string | undefined)[]): string {
   const a = [...args];
@@ -609,7 +612,7 @@ export function writeDsl(ws: Workspace, opts: DslOptions): string {
     if (rels.includes(r) || !path.has(r.source) || !path.has(r.target) || (shown && !shown.has(r.id))) continue;
     out.push(`${ind(2)}${path.get(r.source)} -> ${path.get(r.target)} ${trimArgs([r.label, r.technology])}`.trimEnd());
   }
-  for (const s of skipped) out.push(`${ind(2)}// not exported: ${s}`);
+  for (const s of skipped) out.push(`${ind(2)}// not exported: ${oneLine(s)}`);
   out.push(`${ind(1)}}`, "", `${ind(1)}views {`);
 
   const keys = new Set<string>();
@@ -646,7 +649,7 @@ export function writeDsl(ws: Workspace, opts: DslOptions): string {
       const refs = ids.map((id) => path.get(id)!).sort();
       if (refs.length) out.push(`${ind(3)}include ${refs.join(" ")}`);
     }
-    const dir = String(v.properties.autoLayout ?? "tb");
+    const dir = /^(tb|bt|lr|rl)$/.test(String(v.properties.autoLayout ?? "")) ? String(v.properties.autoLayout) : "tb";
     out.push(`${ind(3)}autoLayout${dir !== "tb" ? " " + dir : ""}`, `${ind(2)}}`, "");
   }
   if (Object.values(ws.elements).some((e) => type.get(e.id) === "c4:Container" && e.properties.kind === "Database")) {

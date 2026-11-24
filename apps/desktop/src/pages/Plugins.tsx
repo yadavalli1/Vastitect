@@ -5,6 +5,8 @@ import { app, set, toast, useApp } from "../state";
 import { isTauri, pickFiles } from "../platform";
 import { Modal } from "../panels/Dialogs";
 import { t } from "../i18n";
+import { Puzzle } from "lucide-react";
+import { PageHeader } from "../ui";
 
 let pending: { manifest: PluginManifest; origin: string; resolve(ok: boolean): void } | undefined;
 const approvalListeners = new Set<() => void>();
@@ -78,11 +80,11 @@ export function PluginsPage() {
     const perms = p.manifest.permissions ?? {};
     return (
       <tr key={p.manifest.id} data-plugin={p.manifest.id}>
-        <td><strong>{p.manifest.name}</strong><div className="muted" style={{ fontSize: 11 }}>{p.manifest.id} · {p.manifest.version}</div></td>
-        <td>{p.origin === "builtin" ? t("Built-in") : p.origin === "user" ? t("User folder") : p.origin === "workspace" ? t("Workspace folder") : t("Browser storage")}</td>
-        <td className={h.status === "failed" ? "sev-error" : undefined}>{h.status === "active" ? t("Active") : h.status === "loading" ? t("Loading…") : t("Failed: {error}", { error: h.error ?? "" })}</td>
-        <td>{h.registered.map((r) => `${r.kind}: ${r.id}`).join(", ")}</td>
-        <td>{[perms.network?.length ? `network: ${perms.network.join(", ")}` : "", perms.fs?.length ? `files: ${perms.fs.join(", ")}` : "", perms.secrets?.length ? `secrets: ${perms.secrets.join(", ")}` : ""].filter(Boolean).join(" · ") || <span className="muted">{t("none")}</span>}</td>
+        <td style={{ minWidth: 200, padding: "8px 10px" }}><strong>{p.manifest.name}</strong><div className="faint mono" style={{ fontSize: 11 }}>{p.manifest.id} · {p.manifest.version}</div></td>
+        <td style={{ whiteSpace: "nowrap" }}>{p.origin === "builtin" ? t("Built-in") : p.origin === "user" ? t("User folder") : p.origin === "workspace" ? t("Workspace folder") : t("Browser storage")}</td>
+        <td><span className={`badge ${h.status === "active" ? "ok" : h.status === "failed" ? "danger" : ""}`}>{h.status === "active" ? t("Active") : h.status === "loading" ? t("Loading…") : t("Failed: {error}", { error: h.error ?? "" })}</span></td>
+        <td style={{ fontSize: 12, padding: "8px 10px" }}>{h.registered.map((r) => `${r.kind}: ${r.id}`).join(", ")}</td>
+        <td style={{ fontSize: 12, padding: "8px 10px" }} className="muted">{[perms.network?.length ? `network: ${perms.network.join(", ")}` : "", perms.fs?.length ? `files: ${perms.fs.join(", ")}` : "", perms.secrets?.length ? `secrets: ${perms.secrets.join(", ")}` : ""].filter(Boolean).join(" · ") || <span className="muted">{t("none")}</span>}</td>
         <td>
           {p.origin !== "builtin" && (
             <span className="flex gap-1">
@@ -95,11 +97,8 @@ export function PluginsPage() {
     );
   };
   return (
-    <div style={{ padding: 16 }} data-testid="plugins-page">
-      <h2 style={{ marginTop: 0 }}>{t("Plugins")}</h2>
-      <p className="muted" style={{ maxWidth: 860 }}>
-        {t("Every notation, importer, exporter and connector is a plugin. Built-ins and third-party plugins use the same API and run in sandboxed workers. To install one, drop its folder into ~/.vastitecture/plugins or the workspace's .vastitecture/plugins, then press Rescan.")}
-      </p>
+    <div className="page" data-testid="plugins-page">
+      <PageHeader icon={Puzzle} title={t("Plugins")} description={t("Every notation, importer, exporter and connector is a plugin. Built-ins and third-party plugins use the same API and run in sandboxed workers. To install one, drop its folder into ~/.vastitecture/plugins or the workspace's .vastitecture/plugins, then press Rescan.")} />
       <div className="flex gap-2 items-center" style={{ marginBottom: 10 }}>
         <button className="btn" onClick={() => void loadInstalledPlugins(workspaceRoot()).then(() => toast(t("Plugin folders rescanned")))}>{t("Rescan plugin folders")}</button>
         <button className="btn" onClick={async () => {
@@ -118,7 +117,7 @@ export function PluginsPage() {
           <input type="checkbox" checked={devMode} onChange={(e) => setDevMode(e.target.checked)} /> {t("Developer mode (hot-reload plugin folders)")}
         </label>
       </div>
-      <table className="grid">
+      <table className="data-table">
         <thead><tr><th>{t("Plugin")}</th><th>{t("From")}</th><th>{t("Status")}</th><th>{t("Provides")}</th><th>{t("Permissions")}</th><th /></tr></thead>
         <tbody>{list.filter((p) => p.origin !== "builtin").map(row)}{list.filter((p) => p.origin === "builtin").map(row)}</tbody>
       </table>

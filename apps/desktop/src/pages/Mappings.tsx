@@ -1,6 +1,8 @@
 import { DEFAULT_MAPPINGS, type MappingRule } from "@vastitecture/core";
 import { dispatch, registry, useModel, useRegistryVersion } from "../state";
 import { t } from "../i18n";
+import { ArrowLeftRight, Trash2 } from "lucide-react";
+import { PageHeader } from "../ui";
 
 /** The cross-notation mapping table: which types in each notation stand for the same concept. */
 export function MappingsPage() {
@@ -15,12 +17,9 @@ export function MappingsPage() {
     save(mappings.map((m, j) => (j === i ? { ...m, members } : m)));
   };
   return (
-    <div style={{ padding: 16 }} data-testid="mappings-page">
-      <h2 style={{ marginTop: 0 }}>{t("Cross-notation mapping")}</h2>
-      <p className="muted" style={{ maxWidth: 820 }}>
-        {t("One element can appear in several notations. When an element is dropped into a view of another notation it is drawn as the first type listed for that notation in its row. Elements keep a single identity, so a rename shows everywhere.")}
-      </p>
-      <table className="grid">
+    <div className="page" data-testid="mappings-page">
+      <PageHeader icon={ArrowLeftRight} title={t("Cross-notation mapping")} description={t("One element can appear in several notations. When an element is dropped into a view of another notation it is drawn as the first type listed for that notation in its row. Elements keep a single identity, so a rename shows everywhere.")} />
+      <table className="data-table">
         <thead>
           <tr>
             <th>{t("Concept")}</th>
@@ -52,7 +51,7 @@ export function MappingsPage() {
                   </td>
                 );
               })}
-              <td><button className="btn ghost" aria-label={t("Delete rule")} onClick={() => save(mappings.filter((_, j) => j !== i), t("Delete mapping rule"))}>🗑</button></td>
+              <td><button className="btn ghost" aria-label={t("Delete rule")} onClick={() => save(mappings.filter((_, j) => j !== i), t("Delete mapping rule"))}><Trash2 size={14} aria-hidden /></button></td>
             </tr>
           ))}
         </tbody>

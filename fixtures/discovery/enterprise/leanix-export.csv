@@ -1,0 +1,3 @@
+ID,Type,Name,Description,Lifecycle
+p1,Provider,Stripe,Payments provider,active
+u1,User Group,Customers,,

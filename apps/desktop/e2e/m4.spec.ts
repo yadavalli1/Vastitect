@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { appState, downloadText, files, newWorkspace, node, openView, state } from "./helpers";
+import { appState, downloadText, files, newWorkspace, node, openView, state, exportMenu } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -110,7 +110,7 @@ test("context map with patterns, Bounded Context Canvas, Event Storming and CML 
   await expect(page.getByTestId("palette").getByRole("button", { name: "Read Model" })).toBeVisible();
 
   // CML export: the C4 system is written as a bounded context
-  const out = await downloadText(page, () => page.getByLabel("Export", { exact: true }).selectOption({ label: "Context Mapper CML" }));
+  const out = await downloadText(page, () => exportMenu(page, "Context Mapper CML"));
   expect(out.text).toContain("ContextMap ContextMap {");
   expect(out.text).toContain("BoundedContext OnlineShop implements Ordering {");
   expect(out.text).toContain("PaymentProvider [U]->[D,ACL] OnlineShop");

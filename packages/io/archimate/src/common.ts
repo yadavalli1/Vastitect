@@ -1,5 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
-import type { Element, ModelPatch, Relationship } from "@vastitecture/plugin-sdk";
+import type { Element, ModelPatch } from "@vastitecture/plugin-sdk";
 import { migrateElementType, relationshipTypeIds } from "@vastitecture/notation-archimate";
 
  
@@ -62,6 +62,3 @@ export class Migration {
   }
 }
 
-export function accessLabel(r: Relationship, accessType: string | undefined) {
-  if (accessType) r.properties.accessType = accessType;
-}

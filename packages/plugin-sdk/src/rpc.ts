@@ -5,7 +5,7 @@
  * declared capabilities and every network or secret request against its declared permissions.
  */
 import type { Registry } from "@vastitecture/core";
-import { PermissionError, checkApiVersion, type Capability, type HostServices, type PluginManifest } from "./index";
+import { PermissionError, checkApiVersion, fetchInit, hostAllowed, type Capability, type HostServices, type PluginManifest } from "./index";
 
 export interface Port {
   postMessage(message: unknown): void;
@@ -175,6 +175,10 @@ export class PluginHost {
       const def: Record<string, unknown> = { ...m.data };
       for (const method of m.methods) def[method] = (...args: unknown[]) => this.call(m.handle, method, args);
       const reg = this.registry;
+      // A plugin may not take over an id that a built-in or another plugin already registered.
+      const existing = { notations: reg.packs, importers: reg.importers, exporters: reg.exporters, validators: reg.validators, connectors: reg.connectors, layouts: reg.layouts, themes: reg.themes, panels: reg.panels }[m.kind] as Map<string, unknown> | undefined;
+      if (typeof def.id !== "string" || !def.id) return this.fail(plugin, `Plugin ${m.plugin} registered a ${cap} without an id`);
+      if (existing?.has(def.id)) return this.fail(plugin, `Plugin ${m.plugin} tried to replace the ${cap} "${def.id}", which is already registered`);
       const add = { notations: reg.registerPack, importers: reg.registerImporter, exporters: reg.registerExporter, validators: reg.registerValidator, connectors: reg.registerConnector, layouts: reg.registerLayout, themes: reg.registerTheme, panels: reg.registerPanel }[m.kind] as (d: never) => () => void;
       this.disposers.push(add(def as never));
       plugin.registered.push({ kind: cap, id: String(def.id) });
@@ -189,12 +193,15 @@ export class PluginHost {
   private async hostCall(manifest: PluginManifest, method: string, args: unknown[]): Promise<unknown> {
     if (method === "log") return void (this.services.log ?? console.log)(`[${manifest.id}]`, ...args);
     if (method === "net.fetch") {
-      const [url, init] = args as [string, never];
+      const [url, rawInit] = args as [unknown, unknown];
+      if (typeof url !== "string") throw new TypeError("net.fetch expects a URL string");
       const host = new URL(url).hostname;
       const allowed = manifest.permissions?.network ?? [];
-      if (!allowed.some((h) => h === "*" || h === host || (h.startsWith("*.") && host.endsWith(h.slice(1))))) throw new PermissionError(`Plugin ${manifest.id} is not allowed to contact ${host}`);
+      if (!hostAllowed(allowed, host)) throw new PermissionError(`Plugin ${manifest.id} is not allowed to contact ${host}`);
       if (!this.services.fetch) throw new Error("Network access is not available");
-      return this.services.fetch(url, init);
+      // Rebuild the request options from known fields only, so nothing in them can change where the
+      // request goes, and pass the allow-list down so redirects are held to it as well.
+      return this.services.fetch(url, { ...fetchInit(rawInit), allowHosts: [...allowed] });
     }
     if (method === "secrets.get") {
       const [name] = args as [string];

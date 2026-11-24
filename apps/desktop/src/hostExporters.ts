@@ -1,15 +1,17 @@
-import { presentationType, type ExportResult, type View, type Workspace } from "@vastitecture/core";
+import { presentationType, slugify, type ExportResult, type View, type Workspace } from "@vastitecture/core";
 import { activate, definePlugin } from "@vastitecture/plugin-sdk";
 import { LIGHT, markdownToHtml, viewToSvg } from "@vastitecture/render";
-import { writePdf } from "@vastitecture/io-formats";
+import { svgToPdfPage, writePdf, writeVectorPdf } from "@vastitecture/io-formats";
 import { hostServices, registry } from "./plugins";
 
 /**
  * Exporters that need the renderer and the full registry (every installed notation's shapes), so they
  * run in the app rather than in a worker. They still register through the plugin API.
  */
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "view";
+const slug = (s: string) => slugify(s) || "view";
 const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/** An element id as an HTML id attribute value and as a link fragment to it. Ids come from workspace files. */
+const anchor = (id: string) => esc(`el-${encodeURIComponent(id)}`);
 const mdCell = (s: unknown) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
 
 const orderedViews = (ws: Workspace) => Object.values(ws.views).filter((v) => v.nodes.length || v.annotations.length).sort((a, b) => a.notation.localeCompare(b.notation) || a.name.localeCompare(b.name));
@@ -65,7 +67,7 @@ function site(ws: Workspace): Record<string, string> {
     files[`views/${names.get(v.id)}.html`] = page(
       v.name,
       `<h1>${esc(v.name)}</h1><p class="muted">${esc(registry.viewpoint(v.notation, v.viewpoint)?.name ?? registry.packs.get(v.notation)?.name ?? v.notation)}</p>${v.description ? `<p>${esc(v.description)}</p>` : ""}<figure>${svgOf(ws, v).replace(/^<svg /, '<svg role="img" ')}</figure>` +
-        `<h2>Elements</h2><table><tr><th>Name</th><th>Type</th><th>Description</th><th>Owner</th></tr>${rows.map((e) => `<tr><td><a href="../elements.html#${e.id}">${esc(e.name)}</a></td><td>${esc(typeName(ws, v, e.id))}</td><td>${esc(e.description)}</td><td>${esc(e.owner)}</td></tr>`).join("")}</table>`,
+        `<h2>Elements</h2><table><tr><th>Name</th><th>Type</th><th>Description</th><th>Owner</th></tr>${rows.map((e) => `<tr><td><a href="../elements.html#${anchor(e.id)}">${esc(e.name)}</a></td><td>${esc(typeName(ws, v, e.id))}</td><td>${esc(e.description)}</td><td>${esc(e.owner)}</td></tr>`).join("")}</table>`,
       1,
     );
     files[`views/${names.get(v.id)}.svg`] = svgOf(ws, v);
@@ -75,11 +77,11 @@ function site(ws: Workspace): Record<string, string> {
   files["elements.html"] = page(
     `${ws.name}: elements`,
     `<h1>Elements</h1><table><tr><th>Name</th><th>Type</th><th>Description</th><th>Owner</th><th>Lifecycle</th><th>Shown in</th></tr>${els
-      .map((e) => `<tr id="${e.id}"><td>${esc(e.name)}${e.links.map((l) => ` <a href="${esc(/^https?:/.test(l.href) ? l.href : "#")}">${esc(l.kind)}</a>`).join("")}</td><td>${esc(registry.elementType(e.type)?.name ?? e.type)}</td><td>${esc(e.description)}</td><td>${esc(e.owner)}</td><td>${esc(e.lifecycle?.phase)}</td><td>${shownIn(e.id).map((v) => `<a href="views/${names.get(v.id)}.html">${esc(v.name)}</a>`).join(", ")}</td></tr>`)
+      .map((e) => `<tr id="${anchor(e.id)}"><td>${esc(e.name)}${e.links.map((l) => ` <a href="${esc(/^https?:/.test(l.href) ? l.href : "#")}">${esc(l.kind)}</a>`).join("")}</td><td>${esc(registry.elementType(e.type)?.name ?? e.type)}</td><td>${esc(e.description)}</td><td>${esc(e.owner)}</td><td>${esc(e.lifecycle?.phase)}</td><td>${shownIn(e.id).map((v) => `<a href="views/${names.get(v.id)}.html">${esc(v.name)}</a>`).join(", ")}</td></tr>`)
       .join("")}</table>`,
   );
   const adrs = Object.values(ws.adrs).sort((a, b) => a.id.localeCompare(b.id));
-  files["decisions.html"] = page(`${ws.name}: decisions`, `<h1>Architecture decisions</h1>${adrs.map((a) => `<section id="adr-${esc(a.id)}"><h2>${esc(a.id)} ${esc(a.title)}</h2><p class="muted">${esc(a.status)}${a.date ? ` · ${esc(a.date)}` : ""}${a.elements.length ? ` · ${a.elements.map((id) => ws.elements[id]).filter(Boolean).map((e) => `<a href="elements.html#${e.id}">${esc(e.name)}</a>`).join(", ")}` : ""}</p>${markdownToHtml(a.body)}</section>`).join("") || '<p class="muted">No decisions recorded yet.</p>'}`);
+  files["decisions.html"] = page(`${ws.name}: decisions`, `<h1>Architecture decisions</h1>${adrs.map((a) => `<section id="adr-${esc(a.id)}"><h2>${esc(a.id)} ${esc(a.title)}</h2><p class="muted">${esc(a.status)}${a.date ? ` · ${esc(a.date)}` : ""}${a.elements.length ? ` · ${a.elements.map((id) => ws.elements[id]).filter(Boolean).map((e) => `<a href="elements.html#${anchor(e.id)}">${esc(e.name)}</a>`).join(", ")}` : ""}</p>${markdownToHtml(a.body)}</section>`).join("") || '<p class="muted">No decisions recorded yet.</p>'}`);
   return files;
 }
 
@@ -97,16 +99,31 @@ function markdownDocs(ws: Workspace): Record<string, string> {
     out.push("");
   }
   files["README.md"] = out.join("\n");
-  for (const a of Object.values(ws.adrs)) files[`decisions/${a.id}-${slug(a.title)}.md`] = `# ${a.id}. ${a.title}\n\nStatus: ${a.status}${a.date ? `\nDate: ${a.date}` : ""}\n\n${a.body}\n`;
+  for (const a of Object.values(ws.adrs)) files[`decisions/${slug(a.id)}-${slug(a.title)}.md`] = `# ${a.id}. ${a.title}\n\nStatus: ${a.status}${a.date ? `\nDate: ${a.date}` : ""}\n\n${a.body}\n`;
   return files;
 }
 
 export const hostExporters = definePlugin({
   manifest: { id: "vastitecture.host-exporters", name: "PDF and documentation site", version: "0.1.0", apiVersion: "1.0.0", capabilities: ["exporter"] },
   activate(ctx) {
+    // Vector PDF: selectable text and sharp lines. The image variants remain for viewers that need them.
     ctx.exporters.register({
       id: "pdf-view",
       label: "PDF (this view)",
+      extension: "pdf",
+      scope: "view",
+      export: (ws, o): ExportResult => writeVectorPdf([svgToPdfPage(svgOf(ws, ws.views[o.view!]))], { title: ws.views[o.view!].name }),
+    });
+    ctx.exporters.register({
+      id: "pdf",
+      label: "PDF (all views)",
+      extension: "pdf",
+      scope: "workspace",
+      export: (ws): ExportResult => writeVectorPdf(orderedViews(ws).map((v) => svgToPdfPage(svgOf(ws, v))), { title: ws.name }),
+    });
+    ctx.exporters.register({
+      id: "pdf-image-view",
+      label: "PDF as an image (this view)",
       extension: "pdf",
       scope: "view",
       async export(ws, o): Promise<ExportResult> {
@@ -115,8 +132,8 @@ export const hostExporters = definePlugin({
       },
     });
     ctx.exporters.register({
-      id: "pdf",
-      label: "PDF (all views)",
+      id: "pdf-image",
+      label: "PDF as images (all views)",
       extension: "pdf",
       scope: "workspace",
       async export(ws): Promise<ExportResult> {

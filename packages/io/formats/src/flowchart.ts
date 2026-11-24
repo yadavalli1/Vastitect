@@ -115,7 +115,7 @@ export function writeMermaidFlowchart(ws: Workspace, viewId: Id): string {
   const id = new Map<Id, string>(view.nodes.map((n, i) => [n.element, `n${i + 1}`]));
   const kids = new Map<Id | undefined, typeof view.nodes>();
   for (const n of view.nodes) if (ws.elements[n.element]) kids.set(n.parent, [...(kids.get(n.parent) ?? []), n]);
-  const q = (s: string) => `"${s.replace(/"/g, "#quot;")}"`;
+  const q = (s: string) => `"${s.replace(/[\r\n\u000b\u000c\u0085\u2028\u2029]+/g, " ").replace(/"/g, "#quot;")}"`;
   const out = [`flowchart ${view.properties.direction === "RIGHT" ? "LR" : "TD"}`];
   const write = (parent: Id | undefined, ind: string) => {
     for (const n of (kids.get(parent) ?? []).sort((a, b) => a.y - b.y || a.x - b.x)) {

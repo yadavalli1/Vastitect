@@ -14,12 +14,18 @@ function crc32(data: Uint8Array) {
   return (c ^ 0xffffffff) >>> 0;
 }
 
+/** A relative path with no empty, `.` or `..` parts, no backslashes, drive letters or control characters. */
+export function safeEntryName(name: string): boolean {
+  return name.length > 0 && name.length <= 512 && !/[\\\u0000-\u001f:]/.test(name) && name.split("/").every((p) => p !== "" && p !== "." && p !== "..");
+}
+
 export function zip(files: Record<string, string | Uint8Array>): Uint8Array {
   const enc = new TextEncoder();
   const chunks: Uint8Array[] = [];
   const central: Uint8Array[] = [];
   let offset = 0;
   for (const [name, content] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {
+    if (!safeEntryName(name)) throw new Error(`Refusing unsafe file name in an archive: ${JSON.stringify(name)}`);
     const data = typeof content === "string" ? enc.encode(content) : content;
     const nameBytes = enc.encode(name);
     const crc = crc32(data);

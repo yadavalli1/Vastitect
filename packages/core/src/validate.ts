@@ -1,6 +1,7 @@
 import type { Id, Workspace } from "./model";
 import { presentationType } from "./queries";
 import type { Problem, Registry } from "./registry";
+import { ruleProblems } from "./rules";
 
 /**
  * Notation-agnostic validation. Pack-specific rules arrive as data (validity, viewpoints)
@@ -161,5 +162,6 @@ export function validate(ws: Workspace, reg: Registry): Problem[] {
       problems.push({ code: "validity-note", severity: "info", message: `${p.name}: ${p.validity.note}`, target: { kind: "workspace" } });
     }
   }
+  problems.push(...ruleProblems(ws));
   return problems;
 }

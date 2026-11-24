@@ -2,6 +2,7 @@ import { applyPatches, enablePatches, produceWithPatches, type Draft, type Patch
 import type {
   Adr,
   Annotation,
+  Comment,
   Element,
   Id,
   MappingRule,
@@ -38,9 +39,11 @@ export type Command =
   | { type: "putAnnotation"; view: Id; annotation: Annotation }
   | { type: "removeAnnotation"; view: Id; id: Id }
   | { type: "setMappings"; mappings: MappingRule[] }
-  | { type: "setSettings"; patch: { name?: string; packs?: string[]; savedFilters?: SavedFilter[]; pluginSettings?: Record<string, unknown> } }
+  | { type: "setSettings"; patch: { name?: string; packs?: string[]; savedFilters?: SavedFilter[]; pluginSettings?: Record<string, unknown>; rules?: unknown[] } }
   | { type: "putAdr"; adr: Adr }
   | { type: "removeAdr"; id: string }
+  | { type: "putComment"; comment: Comment }
+  | { type: "removeComment"; id: string }
   | { type: "applyPatch"; patch: ModelPatch }
   | { type: "replace"; workspace: Workspace };
 
@@ -62,6 +65,7 @@ function removeElement(ws: Draft<Workspace>, id: Id) {
     if (v.subject === id) delete v.subject;
   }
   for (const a of Object.values(ws.adrs)) a.elements = a.elements.filter((e) => e !== id);
+  for (const c of Object.values(ws.comments ?? {})) if (c.target.kind === "element" && c.target.id === id) delete ws.comments![c.id];
 }
 
 function removeRelationship(ws: Draft<Workspace>, id: Id) {
@@ -161,6 +165,15 @@ export function reduce(ws: Draft<Workspace>, c: Command): void {
       break;
     case "removeAdr":
       delete ws.adrs[c.id];
+      break;
+    case "putComment":
+      (ws.comments ??= {})[c.comment.id] = c.comment;
+      break;
+    case "removeComment":
+      if (ws.comments) {
+        delete ws.comments[c.id];
+        for (const x of Object.values(ws.comments)) if (x.replyTo === c.id) delete ws.comments[x.id];
+      }
       break;
     case "applyPatch": {
       const p = c.patch;

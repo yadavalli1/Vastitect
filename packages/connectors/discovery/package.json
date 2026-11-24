@@ -6,7 +6,9 @@
   "main": "src/index.ts",
   "dependencies": {
     "@vastitecture/plugin-sdk": "workspace:*",
-    "yaml": "^2.6.1"
+    "yaml": "^2.6.1",
+    "fast-xml-parser": "^4.5.0",
+    "@vastitecture/core": "workspace:*"
   },
   "devDependencies": {
     "@readme/oas-examples": "8.2.2",

@@ -1,4 +1,10 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Fragment, Suspense, lazy, useEffect, useState } from "react";
+import {
+  AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceAround, AlignStartHorizontal, AlignStartVertical,
+  AlignVerticalSpaceAround, ArrowDownRight, ArrowUpRight, Boxes, ChevronDown, ChevronRight, CircleAlert, CircleHelp, ClipboardPaste, CodeXml, Command, Download,
+  FileUp, Focus, ImageDown, Info, Maximize, Moon, Network, Presentation, Redo2, Search, Shapes, Sparkles, Sun, TriangleAlert, Undo2, Upload, X, type LucideIcon,
+} from "lucide-react";
+import { Button, EmptyState, IconButton, MOD, Menu, PageHeader, Tooltip, TooltipProvider } from "./ui";
 import type { Id } from "@vastitecture/core";
 import { model, redo, registry, select, set, setTheme, undo, useApp, useModel, useRegistryVersion } from "./state";
 import { exportPng, exportSvg, registerLayouts, runLayout, alignSelection } from "./ops";
@@ -19,6 +25,7 @@ import { importFiles, importInputs, runExporter } from "./io";
 import { Modal } from "./panels/Dialogs";
 
 const LazyCode = lazy(() => import("./panels/CodePane"));
+const ChatPanel = lazy(async () => ({ default: (await import("./panels/Chat")).ChatPanel }));
 extensions.codePane = ({ viewId }) => (
   <Suspense fallback={<div className="panel border-l" style={{ width: "40%", padding: 12 }}>{t("Loading editor…")}</div>}>
     <LazyCode key={viewId} viewId={viewId} />
@@ -66,84 +73,178 @@ function Breadcrumbs({ viewId }: { viewId: Id }) {
     cur = up;
   }
   return (
-    <nav className="chrome flex items-center gap-1" aria-label={t("Breadcrumbs")} data-testid="breadcrumbs" style={{ padding: "4px 10px", borderBottom: "1px solid var(--border)", background: "var(--panel)" }}>
+    <nav className="flex items-center gap-1" aria-label={t("Breadcrumbs")} data-testid="breadcrumbs" style={{ minWidth: 0, overflow: "hidden" }}>
       {crumbs.map((c) => (
         <span key={c.id} className="flex items-center gap-1">
-          <button className="btn ghost" onClick={() => (set({ activeView: c.id }), select())}>{c.name}</button>
-          <span className="muted">›</span>
+          <button className="btn ghost sm" onClick={() => (set({ activeView: c.id }), select())}>{c.name}</button>
+          <ChevronRight size={14} className="faint" aria-hidden />
         </span>
       ))}
-      <strong>{view.name}</strong>
-      <span className="chip muted" style={{ marginLeft: 6 }}>{registry.viewpoint(view.notation, view.viewpoint)?.name ?? registry.packs.get(view.notation)?.name ?? view.notation}</span>
+      <strong style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingLeft: crumbs.length ? 2 : 0 }}>{view.name}</strong>
+      <span className="badge" style={{ marginLeft: 6 }}>{registry.viewpoint(view.notation, view.viewpoint)?.name ?? registry.packs.get(view.notation)?.name ?? view.notation}</span>
     </nav>
   );
 }
 
-function Toolbar({ problemCount }: { problemCount: number }) {
+
+const ALIGN: [string, string, LucideIcon][] = [
+  ["left", "Align left", AlignStartVertical],
+  ["hcenter", "Align centres horizontally", AlignCenterVertical],
+  ["right", "Align right", AlignEndVertical],
+  ["top", "Align top", AlignStartHorizontal],
+  ["vcenter", "Align centres vertically", AlignCenterHorizontal],
+  ["bottom", "Align bottom", AlignEndHorizontal],
+  ["hspace", "Distribute horizontally", AlignHorizontalSpaceAround],
+  ["vspace", "Distribute vertically", AlignVerticalSpaceAround],
+];
+
+function ImportMenu() {
+  return (
+    <Menu
+      label={t("Import")}
+      trigger={<Button variant="ghost" icon={Upload}>{t("Import")}</Button>}
+      items={[
+        { label: t("Import files…"), icon: FileUp, onSelect: () => void importFiles() },
+        { label: t("Paste text…"), icon: ClipboardPaste, onSelect: () => window.dispatchEvent(new CustomEvent("vastitecture:paste-import")) },
+      ]}
+    />
+  );
+}
+
+function ExportMenu() {
+  useRegistryVersion();
+  const v = useApp((s) => s.activeView);
+  const onDiagram = useApp((s) => s.page === "diagram");
+  const exporters = [...registry.exporters.values()];
+  const item = (x: (typeof exporters)[number]) => ({ label: x.label, disabled: x.scope === "view" && !(onDiagram && v), onSelect: () => void runExporter(x) });
+  return (
+    <Menu
+      label={t("Export")}
+      align="end"
+      trigger={<Button variant="ghost" icon={Download} aria-label={t("Export")}>{t("Export")}</Button>}
+      items={[
+        { heading: t("This view") },
+        { label: t("SVG image"), icon: ImageDown, disabled: !(onDiagram && v), onSelect: () => v && void exportSvg(v) },
+        { label: t("PNG image"), icon: ImageDown, disabled: !(onDiagram && v), onSelect: () => v && void exportPng(v) },
+        ...exporters.filter((x) => x.scope === "view").map(item),
+        "separator",
+        { heading: t("Whole workspace") },
+        ...exporters.filter((x) => x.scope === "workspace").map(item),
+      ]}
+    />
+  );
+}
+
+function TitleBar({ problemCount }: { problemCount: number }) {
   const s = useApp();
   const name = useModel((ws) => ws.name);
   useModel((ws) => ws); // refresh undo/redo availability
-  const v = s.activeView;
   const saveLabel = { saved: t("Saved"), dirty: t("Unsaved changes"), saving: t("Saving…"), error: t("Save failed") }[s.saveState];
+  const where = s.fsLabel.startsWith("browser:") ? t("Kept inside the app") : s.fsLabel;
   return (
-    <header className="panel chrome flex items-center gap-1 border-b" style={{ padding: "5px 8px", flexWrap: "wrap" }} role="toolbar" aria-label={t("Main toolbar")}>
-      <button className="btn ghost" onClick={() => set({ newOpen: true })} title={s.fsLabel}><strong>{t("Vastitecture")}</strong> · {name}</button>
-      <span className="muted" data-testid="save-state" style={{ fontSize: 11, minWidth: 70 }}>{saveLabel}</span>
-      <button className="btn" onClick={undo} disabled={!model.canUndo} aria-label={t("Undo")} title={t("Undo")}>↶</button>
-      <button className="btn" onClick={redo} disabled={!model.canRedo} aria-label={t("Redo")} title={t("Redo")}>↷</button>
-      {s.page === "diagram" && v && (
-        <>
-          <select className="btn" aria-label={t("Auto-layout")} value="" onChange={(e) => e.target.value && void runLayout(v, e.target.value)}>
-            <option value="">{t("Layout…")}</option>
-            {[...registry.layouts.values()].map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
-          </select>
-          <select className="btn" aria-label={t("Align")} value="" onChange={(e) => e.target.value && alignSelection(e.target.value as never)}>
-            <option value="">{t("Align…")}</option>
-            <option value="left">{t("Align left")}</option>
-            <option value="hcenter">{t("Align centres horizontally")}</option>
-            <option value="right">{t("Align right")}</option>
-            <option value="top">{t("Align top")}</option>
-            <option value="vcenter">{t("Align centres vertically")}</option>
-            <option value="bottom">{t("Align bottom")}</option>
-            <option value="hspace">{t("Distribute horizontally")}</option>
-            <option value="vspace">{t("Distribute vertically")}</option>
-          </select>
-          <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("vastitecture:fit"))}>{t("Fit")}</button>
-          <button className={`btn${s.impact === "usedBy" ? " on" : ""}`} aria-pressed={s.impact === "usedBy"} title={t("Light up everything that depends on the selection")} onClick={() => set({ impact: s.impact === "usedBy" ? null : "usedBy" })}>{t("Used by")}</button>
-          <button className={`btn${s.impact === "dependsOn" ? " on" : ""}`} aria-pressed={s.impact === "dependsOn"} title={t("Light up everything the selection depends on")} onClick={() => set({ impact: s.impact === "dependsOn" ? null : "dependsOn" })}>{t("Depends on")}</button>
-          <button className={`btn${s.focus ? " on" : ""}`} aria-pressed={s.focus} onClick={() => set({ focus: !s.focus })}>{t("Focus")}</button>
-          <button className={`btn${s.codeOpen ? " on" : ""}`} aria-pressed={s.codeOpen} onClick={() => set({ codeOpen: !s.codeOpen })}>{t("Code")}</button>
-          <button className="btn" onClick={() => void exportSvg(v)}>{t("SVG")}</button>
-          <button className="btn" onClick={() => void exportPng(v)}>{t("PNG")}</button>
-          <select className="btn" aria-label={t("Export")} value="" onChange={(e) => { const x = registry.exporters.get(e.target.value); if (x) void runExporter(x); }}>
-            <option value="">{t("Export…")}</option>
-            {[...registry.exporters.values()].map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
-          </select>
-          {extensions.toolbar.map((T, i) => <T key={i} />)}
-        </>
-      )}
-      <button className="btn" onClick={() => void importFiles()}>{t("Import")}</button>
-      <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent("vastitecture:paste-import"))}>{t("Paste")}</button>
+    <header className="titlebar chrome" role="toolbar" aria-label={t("Main toolbar")}>
+      <span className="brand" aria-hidden><span className="brand-mark"><Boxes size={14} strokeWidth={2.2} /></span></span>
+      <Tooltip label={where}>
+        <button type="button" className="btn ghost ws-switch" onClick={() => set({ newOpen: true })} aria-label={t("Workspace: {name}", { name })}>
+          <span className="name"><strong>{name}</strong></span>
+          <ChevronDown size={14} className="faint" aria-hidden />
+        </button>
+      </Tooltip>
+      <span className="flex items-center gap-1 faint" style={{ fontSize: 12, minWidth: 92 }}>
+        <span className={`save-dot ${s.saveState}`} aria-hidden />
+        <span data-testid="save-state">{saveLabel}</span>
+      </span>
+      <div className="btn-group">
+        <IconButton icon={Undo2} label={t("Undo")} shortcut={`${MOD}Z`} onClick={undo} disabled={!model.canUndo} />
+        <IconButton icon={Redo2} label={t("Redo")} shortcut={`${MOD}⇧Z`} onClick={redo} disabled={!model.canRedo} />
+      </div>
       <span style={{ flex: 1 }} />
-      <button className={`btn${s.problemsOpen ? " on" : ""}`} aria-pressed={s.problemsOpen} onClick={() => set({ problemsOpen: !s.problemsOpen })}>{t("Problems")} ({problemCount})</button>
-      <button className="btn" onClick={() => set({ presenting: true })}>{t("Present")}</button>
-      <button className="btn" onClick={() => setTheme(s.theme === "dark" ? "light" : "dark")} aria-label={t("Toggle theme")}>{s.theme === "dark" ? "☀" : "☾"}</button>
-      <button className="btn" onClick={() => set({ searchOpen: true })} aria-label={t("Search")} title={t("Search (Ctrl+P)")}>🔎</button>
-      <button className="btn" onClick={() => set({ commandOpen: true })}>⌘K</button>
-      <button className="btn" aria-label={t("About")} title={t("About")} onClick={() => window.dispatchEvent(new CustomEvent("vastitecture:about"))}>?</button>
+      <button type="button" className="searchbar" onClick={() => set({ searchOpen: true })} aria-label={t("Search")}>
+        <Search size={14} aria-hidden />
+        <span>{t("Search the model…")}</span>
+        <span className="kbd">{MOD}K</span>
+      </button>
+      <span style={{ flex: 1 }} />
+      <ImportMenu />
+      <ExportMenu />
+      <span className="toolbar-sep" />
+      <IconButton
+        icon={CircleAlert}
+        label={t("Problems ({count})", { count: problemCount })}
+        pressed={s.problemsOpen}
+        onClick={() => set({ problemsOpen: !s.problemsOpen, page: "diagram" })}
+        badge={problemCount ? <span className="count danger" style={{ position: "absolute", top: -3, right: -5, transform: "scale(.85)" }}>{problemCount}</span> : undefined}
+      />
+      <IconButton icon={Sparkles} label={t("Assistant chat")} pressed={s.chatOpen} onClick={() => set({ chatOpen: !s.chatOpen })} />
+      <IconButton icon={s.theme === "dark" ? Sun : Moon} label={t("Toggle theme")} onClick={() => setTheme(s.theme === "dark" ? "light" : "dark")} />
+      <Menu
+        label={t("Help")}
+        align="end"
+        trigger={<IconButton icon={CircleHelp} label={t("Help")} />}
+        items={[
+          { label: t("Command palette"), icon: Command, shortcut: `${MOD}⇧P`, onSelect: () => set({ commandOpen: true }) },
+          { label: t("Search"), icon: Search, shortcut: `${MOD}K`, onSelect: () => set({ searchOpen: true }) },
+          "separator",
+          { label: t("About Vastitecture"), icon: Info, onSelect: () => window.dispatchEvent(new CustomEvent("vastitecture:about")) },
+        ]}
+      />
     </header>
+  );
+}
+
+/** Tools for the open diagram: layout, alignment, impact highlighting, code and presentation. */
+function DiagramBar({ viewId }: { viewId: Id }) {
+  const s = useApp();
+  useRegistryVersion();
+  return (
+    <div className="subbar chrome" role="toolbar" aria-label={t("Diagram tools")}>
+      <Breadcrumbs viewId={viewId} />
+      <Menu
+        label={t("Auto-layout")}
+        align="end"
+        trigger={<Button variant="ghost" size="sm" icon={Network} aria-label={t("Auto-layout")}>{t("Layout")}</Button>}
+        items={[...registry.layouts.values()].map((l) => ({ label: l.label, onSelect: () => void runLayout(viewId, l.id) }))}
+      />
+      <Menu
+        label={t("Align")}
+        align="end"
+        trigger={<Button variant="ghost" size="sm" icon={AlignStartVertical} aria-label={t("Align")}>{t("Align")}</Button>}
+        items={ALIGN.flatMap(([id, label, icon], i) => [...(i === 6 ? ["separator" as const] : []), { label: t(label), icon, onSelect: () => alignSelection(id as never) }])}
+      />
+      <IconButton size="sm" icon={Maximize} label={t("Fit")} shortcut="1" onClick={() => window.dispatchEvent(new CustomEvent("vastitecture:fit"))} />
+      <span className="toolbar-sep" />
+      <IconButton size="sm" icon={ArrowUpRight} label={t("Used by")} pressed={s.impact === "usedBy"} onClick={() => set({ impact: s.impact === "usedBy" ? null : "usedBy" })} />
+      <IconButton size="sm" icon={ArrowDownRight} label={t("Depends on")} pressed={s.impact === "dependsOn"} onClick={() => set({ impact: s.impact === "dependsOn" ? null : "dependsOn" })} />
+      <IconButton size="sm" icon={Focus} label={t("Focus")} pressed={s.focus} onClick={() => set({ focus: !s.focus })} />
+      <span className="toolbar-sep" />
+      <IconButton size="sm" icon={CodeXml} label={t("Code")} pressed={s.codeOpen} onClick={() => set({ codeOpen: !s.codeOpen })} />
+      <IconButton size="sm" icon={Presentation} label={t("Present")} onClick={() => set({ presenting: true })} />
+      {extensions.toolbar.map((T, i) => <T key={i} />)}
+    </div>
   );
 }
 
 function Rail() {
   const page = useApp((s) => s.page);
-  const item = (id: string, icon: string, label: string) => (
-    <button key={id} className={`btn ghost${page === id ? " on" : ""}`} style={{ width: 44, height: 40, justifyContent: "center", fontSize: 17 }} aria-label={label} title={label} aria-current={page === id} onClick={() => set({ page: id as never })}>{icon}</button>
+  const item = (id: string, Icon: LucideIcon, label: string) => (
+    <Tooltip key={id} label={label} side="right">
+      <button type="button" className={`btn ghost${page === id ? " on" : ""}`} aria-label={label} aria-current={page === id} onClick={() => set({ page: id as never })}>
+        <Icon size={18} strokeWidth={1.7} aria-hidden />
+      </button>
+    </Tooltip>
   );
+  const groups = ["model", "analyse", "connect"] as const;
   return (
-    <nav className="panel chrome flex flex-col items-center gap-1 border-r" style={{ padding: "6px 3px" }} aria-label={t("Sections")}>
-      {item("diagram", "◫", t("Diagrams"))}
-      {pages.map((p) => item(p.id, p.icon, p.label()))}
+    <nav className="rail chrome" aria-label={t("Sections")}>
+      {item("diagram", Shapes, t("Diagrams"))}
+      {groups.map((g, i) => (
+        <Fragment key={g}>
+          {pages.filter((p) => p.group === g).map((p) => item(p.id, p.icon, p.label()))}
+          {i < groups.length - 1 && <span className="rail-sep" />}
+        </Fragment>
+      ))}
+      <span style={{ flex: 1 }} />
+      {pages.filter((p) => p.group === "app").map((p) => item(p.id, p.icon, p.label()))}
     </nav>
   );
 }
@@ -168,44 +269,50 @@ export function App() {
   }, []);
   if (s.phase === "error")
     return (
-      <div style={{ padding: 40 }} role="alert">
-        <h2>{t("Vastitecture could not start")}</h2>
-        <pre style={{ whiteSpace: "pre-wrap" }}>{s.bootError}</pre>
+      <div className="page" role="alert">
+        <PageHeader icon={TriangleAlert} title={t("Vastitecture could not start")} description={t("Nothing was changed. The details below help when reporting the problem.")} />
+        <pre className="card card-pad" style={{ whiteSpace: "pre-wrap" }}>{s.bootError}</pre>
       </div>
     );
-  if (s.phase === "loading") return <div style={{ padding: 40 }}>{t("Loading…")}</div>;
+  if (s.phase === "loading")
+    return (
+      <div className="h-full" style={{ display: "grid", placeItems: "center" }}>
+        <span className="brand-mark" style={{ width: 40, height: 40, borderRadius: 10 }} aria-label={t("Loading…")}><Boxes size={22} strokeWidth={2} /></span>
+      </div>
+    );
   const page = pages.find((p) => p.id === s.page);
   const real = problems.filter((p) => p.severity !== "info").length;
   const CodePane = extensions.codePane;
   return (
+    <TooltipProvider>
     <div className={`flex flex-col h-full${s.presenting ? " present" : ""}`}>
-      <Toolbar problemCount={real} />
+      <TitleBar problemCount={real} />
       <div className="flex flex-1" style={{ minHeight: 0 }}>
         <Rail />
         {page ? (
-          <main className="flex-1 scroll" style={{ minWidth: 0 }}>{page.render()}</main>
+          <main className="flex-1 scroll" style={{ minWidth: 0 }} key={page.id}>{page.render()}</main>
         ) : (
           <>
             <Sidebar />
             <main className="flex flex-col flex-1" style={{ minWidth: 0 }}>
-              {s.activeView && <Breadcrumbs viewId={s.activeView} />}
+              {s.activeView && !s.presenting && <DiagramBar viewId={s.activeView} />}
               <div className="flex flex-1" style={{ minHeight: 0 }}>
                 <div className="flex-1" style={{ minWidth: 0, position: "relative" }}>
                   {s.activeView ? (
                     extensions.viewRenderer(s.activeView) ?? <Canvas viewId={s.activeView} />
                   ) : (
-                    <div style={{ padding: 40 }} className="muted">{t("Create a view to start drawing.")}</div>
+                    <div className="page"><EmptyState icon={Shapes} title={t("No views yet")}>{t("Create a view from the panel on the left to start drawing.")}</EmptyState></div>
                   )}
                 </div>
                 {s.codeOpen && s.activeView && CodePane && !s.presenting && <CodePane viewId={s.activeView} />}
               </div>
               {s.problemsOpen && !s.presenting && <Problems problems={problems} />}
             </main>
-            {!s.presenting && <Properties />}
+            {!s.presenting && (s.chatOpen ? <Suspense fallback={<aside className="side border-l" style={{ width: 340 }} />}><ChatPanel /></Suspense> : <Properties />)}
           </>
         )}
       </div>
-      {s.presenting && <button className="btn" style={{ position: "fixed", top: 8, right: 8, zIndex: 30 }} onClick={() => set({ presenting: false })}>{t("Exit presentation")}</button>}
+      {s.presenting && <Button icon={X} style={{ position: "fixed", top: 12, right: 12, zIndex: 30 }} onClick={() => set({ presenting: false })}>{t("Exit presentation")}</Button>}
       {s.commandOpen && <CommandPalette />}
       {s.searchOpen && <SearchDialog />}
       {s.newOpen && <WorkspaceDialog />}
@@ -215,13 +322,18 @@ export function App() {
       <ConflictDialog />
       <PluginApproval />
       {!!s.loadIssues.length && (
-        <div className="panel" role="alert" style={{ position: "fixed", left: 12, bottom: 12, zIndex: 30, border: "1px solid var(--danger)", borderRadius: 6, padding: 10, maxWidth: 520 }}>
-          <strong className="sev-error">{t("{count} file(s) could not be read", { count: s.loadIssues.length })}</strong>
-          {s.loadIssues.slice(0, 4).map((i) => <div key={i.path} style={{ fontSize: 11 }}>{i.path}: {i.message.slice(0, 160)}</div>)}
-          <button className="btn mt-2" onClick={() => set({ loadIssues: [] })}>{t("Dismiss")}</button>
+        <div className="callout danger" role="alert" style={{ position: "fixed", left: 64, bottom: 16, zIndex: 30, maxWidth: 520, boxShadow: "var(--shadow-md)" }}>
+          <TriangleAlert size={16} className="sev-error" style={{ flex: "none", marginTop: 1 }} aria-hidden />
+          <div>
+            <strong>{t("{count} file(s) could not be read", { count: s.loadIssues.length })}</strong>
+            <div className="muted" style={{ margin: "2px 0 8px" }}>{t("They are left untouched on disk until they can be read again.")}</div>
+            {s.loadIssues.slice(0, 4).map((i) => <div key={i.path} className="mono" style={{ fontSize: 11 }}>{i.path}: {i.message.slice(0, 160)}</div>)}
+            <Button size="sm" style={{ marginTop: 8 }} onClick={() => set({ loadIssues: [] })}>{t("Dismiss")}</Button>
+          </div>
         </div>
       )}
-      {s.toast && <div role="status" className="panel" style={{ position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)", zIndex: 60, border: "1px solid var(--border)", borderRadius: 6, padding: "8px 14px", boxShadow: "0 6px 20px rgba(0,0,0,.25)" }}>{s.toast}</div>}
+      {s.toast && <div role="status" className="toast">{s.toast}</div>}
     </div>
+    </TooltipProvider>
   );
 }

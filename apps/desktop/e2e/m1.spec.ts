@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { connectNodes, files, newView, newWorkspace, state } from "./helpers";
+import { connectNodes, files, newView, newWorkspace, state, exportMenu } from "./helpers";
 
 test("first launch opens the sample workspace with no configuration", async ({ page }) => {
   await page.goto("/");
@@ -78,12 +78,12 @@ test("create a workspace, draw, connect, rename, delete, undo, and reopen", asyn
 test("exports a view as SVG and PNG", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".react-flow__node")).not.toHaveCount(0);
-  const [svg] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "SVG", exact: true }).click()]);
+  const [svg] = await Promise.all([page.waitForEvent("download"), exportMenu(page, "SVG image")]);
   expect(svg.suggestedFilename()).toMatch(/\.svg$/);
   const text = (await (await svg.createReadStream()).toArray()).join("");
   expect(text).toContain("<svg");
   expect(text).toContain("<title>");
-  const [png] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "PNG", exact: true }).click()]);
+  const [png] = await Promise.all([page.waitForEvent("download"), exportMenu(page, "PNG image")]);
   const bytes = Buffer.concat(await (await png.createReadStream()).toArray());
   expect(bytes.subarray(1, 4).toString()).toBe("PNG");
   expect(bytes.length).toBeGreaterThan(2000);

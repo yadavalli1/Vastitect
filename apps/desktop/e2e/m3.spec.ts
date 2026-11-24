@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { applyReview, downloadText, newWorkspace, openView, state } from "./helpers";
+import { applyReview, downloadText, newWorkspace, openView, state, exportMenu, importMenu } from "./helpers";
 
 const SAMPLE = new URL("../../../packages/io/archimate/node_modules/mcp-archimate/data/", import.meta.url).pathname;
 
 test("an Archi sample model imports, migrates to ArchiMate 4, renders and round-trips through the exchange format", async ({ page }) => {
   await page.goto("/");
   await newWorkspace(page, "m3-archi");
-  const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByRole("button", { name: "Import", exact: true }).click()]);
+  const [chooser] = await Promise.all([page.waitForEvent("filechooser"), importMenu(page, "Import files…")]);
   await chooser.setFiles(SAMPLE + "archisurance.archimate");
   const review = page.getByTestId("review");
   await expect(review).toBeVisible();
@@ -30,11 +30,11 @@ test("an Archi sample model imports, migrates to ArchiMate 4, renders and round-
   await expect(page.locator('.vnode[data-type^="archimate:"]').first()).toBeVisible();
 
   // exchange-format export uses ArchiMate 3.x names again and re-imports with nothing changed
-  const out = await downloadText(page, () => page.getByLabel("Export", { exact: true }).selectOption({ label: "ArchiMate Model Exchange File Format (3.x)" }));
+  const out = await downloadText(page, () => exportMenu(page, "ArchiMate Model Exchange File Format (3.x)"));
   expect(out.name).toMatch(/\.xml$/);
   expect(out.text).toContain("http://www.opengroup.org/xsd/archimate/3.0/");
   expect(out.text).toContain('xsi:type="BusinessProcess"');
-  const [again] = await Promise.all([page.waitForEvent("filechooser"), page.getByRole("button", { name: "Import", exact: true }).click()]);
+  const [again] = await Promise.all([page.waitForEvent("filechooser"), importMenu(page, "Import files…")]);
   await again.setFiles({ name: "roundtrip.xml", mimeType: "application/xml", buffer: out.bytes });
   await expect(review).toContainText("+0 added");
   await expect(review).toContainText("−0 removed");
@@ -55,6 +55,7 @@ test("viewpoints restrict the palette, and the About box carries the trademark n
   // permissive validity mode is announced, not hidden
   await page.getByRole("button", { name: /^Problems/ }).click();
   await expect(page.getByTestId("problems")).toContainText("permissive");
-  await page.getByRole("button", { name: "About" }).click();
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("menuitem", { name: "About Vastitecture" }).click();
   await expect(page.getByTestId("trademarks")).toHaveText("ArchiMate® and TOGAF® are registered trademarks of The Open Group.");
 });

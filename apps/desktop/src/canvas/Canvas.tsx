@@ -403,7 +403,8 @@ function Inner({ viewId }: { viewId: Id }) {
     for (const n of view?.nodes ?? []) if (lit.has(n.element)) for (let p = n.parent; p; p = view!.nodes.find((x) => x.element === p)?.parent) lit.add(p);
     return lit;
   }, [selection.elements, impactMode, focus, relationships, elements, view]);
-  const ctx = useMemo(() => ({ highlight }), [highlight]);
+  const overlay = useApp((s) => s.overlay);
+  const ctx = useMemo(() => ({ highlight, overlay }), [highlight, overlay]);
 
   if (!view) return null;
   return (
@@ -460,9 +461,14 @@ function Inner({ viewId }: { viewId: Id }) {
             </ViewportPortal>
           )}
           {!presenting && <Controls showInteractive={false} position="bottom-left" />}
-          {!presenting && <MiniMap pannable zoomable position="bottom-right" nodeColor="var(--muted)" maskColor="color-mix(in srgb, var(--bg) 70%, transparent)" ariaLabel={t("Minimap")} />}
+          {!presenting && <MiniMap pannable zoomable position="bottom-right" nodeColor="var(--border-strong)" nodeBorderRadius={3} maskColor="color-mix(in srgb, var(--bg) 60%, transparent)" ariaLabel={t("Minimap")} />}
         </ReactFlow>
       </CanvasContext.Provider>
+      {overlay && !presenting && (
+        <div className="overlay-banner" role="status" data-testid="overlay-banner">
+          {overlay.title} <button className="btn ghost" onClick={() => set({ overlay: undefined })}>{t("Clear")}</button>
+        </div>
+      )}
       {chooser && <Chooser {...chooser} onClose={() => (setChooser(null), wrap.current?.focus())} />}
       <div id="canvas-live" aria-live="polite" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }} />
     </div>

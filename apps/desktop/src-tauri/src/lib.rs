@@ -81,13 +81,31 @@ fn git_diff(root: String, path: String) -> Result<String, String> {
     shell::git_diff(Path::new(&root), &path)
 }
 
-/// Full-text search over the workspace files. The index is a cache under .vastitecture/cache.
 #[tauri::command]
-fn search(state: State<AppState>, root: String, query: String) -> Result<Vec<shell::SearchHit>, String> {
+async fn git_files_at(root: String, rev: String) -> Result<std::collections::BTreeMap<String, String>, String> {
+    shell::git_files_at(Path::new(&root), &rev)
+}
+
+#[tauri::command]
+async fn read_tree(root: String) -> Result<Vec<shell::TreeFile>, String> {
+    shell::read_tree(Path::new(&root), 20_000)
+}
+
+#[tauri::command]
+fn git_log(root: String) -> Vec<shell::GitCommit> {
+    shell::git_log(Path::new(&root), 30)
+}
+
+/// Full-text search over the workspace files. The index is a cache in the app's cache folder.
+#[tauri::command]
+fn search(app: AppHandle, state: State<AppState>, root: String, query: String) -> Result<Vec<shell::SearchHit>, String> {
     let root_path = PathBuf::from(&root);
     let mut guard = state.search.lock().unwrap();
     if guard.as_ref().map(|(r, _)| r != &root_path).unwrap_or(true) {
-        let db = root_path.join(".vastitecture").join("cache").join("search.sqlite");
+        // The index lives in the app's own cache folder, keyed by the workspace path, so a workspace
+        // cannot ship a prepared database or point the index somewhere else with a link.
+        let dir = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("search");
+        let db = dir.join(format!("{}.sqlite", shell::path_key(&root_path)));
         *guard = Some((root_path.clone(), shell::SearchIndex::open(Some(&db))?));
     }
     let (_, index) = guard.as_mut().unwrap();
@@ -129,9 +147,18 @@ struct HttpResponse {
 /// HTTP bridge for connectors, plugins and the AI assistant. The webview checks plugin
 /// permissions before calling; the app itself never calls this unless the user runs one of those.
 #[tauri::command]
-async fn http_fetch(url: String, method: Option<String>, headers: Option<HashMap<String, String>>, body: Option<String>) -> Result<HttpResponse, String> {
+async fn http_fetch(url: String, method: Option<String>, headers: Option<HashMap<String, String>>, body: Option<String>, allow_hosts: Option<Vec<String>>) -> Result<HttpResponse, String> {
     let method = reqwest::Method::from_bytes(method.unwrap_or_else(|| "GET".into()).as_bytes()).map_err(|e| e.to_string())?;
-    let mut req = reqwest::Client::new().request(method, &url);
+    // For plugin calls the webview passes the plugin's approved hosts: every redirect must stay within them.
+    let policy = match allow_hosts {
+        Some(allowed) => reqwest::redirect::Policy::custom(move |attempt| {
+            let ok = attempt.previous().len() < 10 && attempt.url().host_str().map(|h| shell::host_allowed(&allowed, h)).unwrap_or(false);
+            if ok { attempt.follow() } else { attempt.stop() }
+        }),
+        None => reqwest::redirect::Policy::limited(10),
+    };
+    let client = reqwest::Client::builder().redirect(policy).build().map_err(|e| e.to_string())?;
+    let mut req = client.request(method, &url);
     for (k, v) in headers.unwrap_or_default() {
         req = req.header(k, v);
     }
@@ -162,10 +189,15 @@ fn plugin_read(dir: String, file: String) -> Result<String, String> {
     shell::read_plugin_file(Path::new(&dir), &file)
 }
 
-/// Read-only AWS discovery through the user's own AWS CLI and local profile.
 #[tauri::command]
-async fn aws_cli(service: String, operation: String, profile: Option<String>, region: Option<String>) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || shell::aws_cli(&service, &operation, profile.as_deref(), region.as_deref()))
+fn reveal_folder(path: String) -> Result<(), String> {
+    shell::reveal_folder(Path::new(&path))
+}
+
+/// Read-only cloud discovery through the user's own aws, gcloud or az CLI and local login.
+#[tauri::command]
+async fn cloud_cli(tool: String, args: Vec<String>, flags: Vec<(String, String)>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || shell::cloud_cli(&tool, &args, &flags))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -188,6 +220,9 @@ pub fn run() {
             ws_watch,
             ws_unwatch,
             write_binary,
+            git_files_at,
+            read_tree,
+            git_log,
             git_status,
             git_diff,
             search,
@@ -196,7 +231,8 @@ pub fn run() {
             http_fetch,
             plugins_list,
             plugin_read,
-            aws_cli
+            cloud_cli,
+            reveal_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vastitecture");

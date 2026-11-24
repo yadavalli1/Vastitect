@@ -139,6 +139,18 @@ export const AdrSchema = z.object({
 });
 export type Adr = z.infer<typeof AdrSchema>;
 
+/** A review comment on an element, relationship or view. Stored one per file in comments/ so they merge cleanly. */
+export const CommentSchema = z.object({
+  id: z.string(),
+  target: z.object({ kind: z.enum(["element", "relationship", "view"]), id: z.string() }),
+  author: z.string().default(""),
+  date: z.string(),
+  text: z.string(),
+  replyTo: z.string().optional(),
+  resolved: z.boolean().optional(),
+});
+export type Comment = z.infer<typeof CommentSchema>;
+
 export const SavedFilterSchema = z.object({
   name: z.string(),
   query: z.string().default(""),
@@ -153,6 +165,8 @@ export const SettingsSchema = z.object({
   mappings: z.array(MappingRuleSchema).default([]),
   pluginSettings: z.record(z.unknown()).default({}),
   savedFilters: z.array(SavedFilterSchema).default([]),
+  /** Architecture rules (see rules.ts). Kept as raw data so one broken rule never stops a workspace loading. */
+  rules: z.array(z.unknown()).default([]),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
@@ -161,6 +175,8 @@ export interface Workspace extends Settings {
   relationships: Record<Id, Relationship>;
   views: Record<Id, View>;
   adrs: Record<string, Adr>;
+  /** Review comments, keyed by id (optional: older workspaces and tests omit it). */
+  comments?: Record<string, Comment>;
 }
 
 export function emptyWorkspace(name = "Untitled", packs: string[] = []): Workspace {
@@ -171,6 +187,7 @@ export function emptyWorkspace(name = "Untitled", packs: string[] = []): Workspa
     mappings: [],
     pluginSettings: {},
     savedFilters: [],
+    rules: [],
     elements: {},
     relationships: {},
     views: {},

@@ -1,6 +1,7 @@
 import type { Element, Id, Workspace } from "./model";
 import { ancestors } from "./queries";
 import type { Registry, ReportDef } from "./registry";
+import { toCsv } from "./csv";
 
 export interface Table {
   title: string;
@@ -75,8 +76,7 @@ export function runReport(ws: Workspace, def: ReportDef, reg?: Registry): Table 
   };
 }
 
-const csvCell = (v: string | number) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-export const tableToCsv = (t: Table) => [t.columns, ...t.rows].map((r) => r.map(csvCell).join(",")).join("\n") + "\n";
+export const tableToCsv = (t: Table) => toCsv([t.columns, ...t.rows]);
 export const tableToMarkdown = (t: Table) => {
   const cell = (v: string | number) => String(v).replace(/\|/g, "\\|").replace(/\n/g, " ");
   return [`## ${t.title}`, "", `| ${t.columns.map(cell).join(" | ")} |`, `| ${t.columns.map(() => "---").join(" | ")} |`, ...t.rows.map((r) => `| ${r.map(cell).join(" | ")} |`), ""].join("\n");

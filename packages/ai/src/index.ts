@@ -318,3 +318,5 @@ export function translateView(ws: Workspace, reg: Registry, viewId: Id, notation
   report.unshift(`${view.nodes.length} element(s) and ${view.edges.length} relationship(s) in the translated view; ${relationships.length} new ${notation} relationship(s).`);
   return { relationships, views: [view], report };
 }
+
+export * from "./chat";

@@ -10,6 +10,7 @@ export default defineConfig({
       "@vastitecture/plugin-sdk": p("./packages/plugin-sdk/src/index.ts"),
       "@vastitecture/notation-archimate": p("./packages/notations/archimate/src/index.ts"),
       "@vastitecture/render": p("./packages/render/src/index.ts"),
+      "@vastitecture/samples": p("./packages/samples/src/index.ts"),
     },
   },
   test: { include: ["packages/**/*.test.ts"], environment: "node" },

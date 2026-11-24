@@ -4,6 +4,8 @@ import { dispatch, model, registry, select, set, useApp, useModel, useRegistryVe
 import { phaseLabel } from "../panels/Properties";
 import { TableExport } from "./Reports";
 import { t } from "../i18n";
+import { Table2 } from "lucide-react";
+import { PageHeader, safeHref } from "../ui";
 
 const BUILTIN = ["name", "type", "owner", "lifecycle", "tags"] as const;
 
@@ -69,15 +71,15 @@ export function FactSheetsPage() {
   };
   const bulkDef = portfolio.find((d) => d.key === bulk.field);
   return (
-    <div style={{ padding: 16 }} data-testid="factsheets-page">
-      <div className="flex items-center gap-2" style={{ flexWrap: "wrap", marginBottom: 8 }}>
-        <h2 style={{ margin: "0 12px 0 0" }}>{t("Fact sheets")}</h2>
-        <input className="input" style={{ width: 280 }} aria-label={t("Filter fact sheets")} placeholder={t("Filter… (type:, tag:, owner:, phase:, no:owner)")} value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="btn" aria-label={t("Element type")} value={types[0] ?? ""} onChange={(e) => setTypes(e.target.value ? [e.target.value] : [])}>
+    <div className="page wide" data-testid="factsheets-page">
+      <PageHeader icon={Table2} title={t("Fact sheets")} description={t("Every element in the model, with ownership, lifecycle and portfolio ratings. Edit cells in place, or select rows to change many at once.")} actions={<TableExport table={table} base="fact-sheets" />} />
+      <div className="flex items-center gap-2" style={{ flexWrap: "wrap", marginBottom: 12 }}>
+        <input className="input" style={{ width: 300 }} aria-label={t("Filter fact sheets")} placeholder={t("Filter… (type:, tag:, owner:, phase:, no:owner)")} value={q} onChange={(e) => setQ(e.target.value)} />
+        <select className="input" style={{ width: "auto" }} aria-label={t("Element type")} value={types[0] ?? ""} onChange={(e) => setTypes(e.target.value ? [e.target.value] : [])}>
           <option value="">{t("All types")}</option>
           {usedTypes.map((ty) => <option key={ty} value={ty}>{registry.elementType(ty)?.name ?? ty}</option>)}
         </select>
-        <select className="btn" aria-label={t("Saved filters")} value="" onChange={(e) => {
+        <select className="input" style={{ width: "auto" }} aria-label={t("Saved filters")} value="" onChange={(e) => {
           const f = savedFilters.find((x) => x.name === e.target.value);
           if (f) (setQ(f.query), setTypes(f.types));
         }}>
@@ -88,26 +90,25 @@ export function FactSheetsPage() {
           const name = prompt(t("Name this filter"), q || types.join(", "));
           if (name) dispatch({ type: "setSettings", patch: { savedFilters: [...savedFilters.filter((f) => f.name !== name), { name, query: q, types }] } }, t("Save filter"));
         }}>{t("Save filter")}</button>
-        <span className="muted">{t("{count} elements", { count: rows.length })}</span>
-        <span style={{ marginLeft: "auto" }}><TableExport table={table} base="fact-sheets" /></span>
+        <span className="faint" style={{ marginLeft: "auto" }}>{t("{count} elements", { count: rows.length })}</span>
       </div>
       {checked.size > 0 && (
-        <div className="panel flex items-center gap-2" style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 6, marginBottom: 8 }} role="group" aria-label={t("Bulk edit")}>
+        <div className="callout flex items-center gap-2" style={{ marginBottom: 12, alignItems: "center", background: "var(--accent-soft)", borderColor: "transparent" }} role="group" aria-label={t("Bulk edit")}>
           <strong>{t("{count} selected", { count: checked.size })}</strong>
           <span>{t("Set")}</span>
-          <select aria-label={t("Bulk field")} value={bulk.field} onChange={(e) => setBulk({ field: e.target.value, value: "" })}>
+          <select className="input" style={{ width: "auto" }} aria-label={t("Bulk field")} value={bulk.field} onChange={(e) => setBulk({ field: e.target.value, value: "" })}>
             <option value="owner">{t("Owner")}</option>
             <option value="lifecycle">{t("Lifecycle")}</option>
             <option value="addTag">{t("Add tag")}</option>
             {portfolio.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
           </select>
           {bulk.field === "lifecycle" ? (
-            <select aria-label={t("Bulk value")} value={bulk.value} onChange={(e) => setBulk({ ...bulk, value: e.target.value })}>
+            <select className="input" style={{ width: "auto" }} aria-label={t("Bulk value")} value={bulk.value} onChange={(e) => setBulk({ ...bulk, value: e.target.value })}>
               <option value="">—</option>
               {LIFECYCLE_PHASES.map((p) => <option key={p} value={p}>{phaseLabel(p)}</option>)}
             </select>
           ) : bulkDef?.type === "enum" ? (
-            <select aria-label={t("Bulk value")} value={bulk.value} onChange={(e) => setBulk({ ...bulk, value: e.target.value })}>
+            <select className="input" style={{ width: "auto" }} aria-label={t("Bulk value")} value={bulk.value} onChange={(e) => setBulk({ ...bulk, value: e.target.value })}>
               <option value="">—</option>
               {bulkDef.options?.map((o) => <option key={o}>{o}</option>)}
             </select>
@@ -118,8 +119,8 @@ export function FactSheetsPage() {
           <button className="btn" onClick={() => setChecked(new Set())}>{t("Clear selection")}</button>
         </div>
       )}
-      <div className="scroll" style={{ maxHeight: "calc(100vh - 210px)" }}>
-        <table className="grid" data-testid="factsheets">
+      <div className="card scroll" style={{ maxHeight: "calc(100vh - 250px)" }}>
+        <table className="data-table" data-testid="factsheets">
           <thead>
             <tr>
               <th><input type="checkbox" aria-label={t("Select all")} checked={all} onChange={() => setChecked(all ? new Set() : new Set(rows.map((e) => e.id)))} /></th>
@@ -129,13 +130,13 @@ export function FactSheetsPage() {
           </thead>
           <tbody>
             {rows.map((e) => (
-              <tr key={e.id} data-element={e.id} style={selection.includes(e.id) ? { outline: "2px solid var(--accent)" } : undefined}>
+              <tr key={e.id} data-element={e.id} className={selection.includes(e.id) ? "selected" : undefined}>
                 <td><input type="checkbox" aria-label={t("Select {name}", { name: e.name })} checked={checked.has(e.id)} onChange={() => setChecked((s) => { const n = new Set(s); n.has(e.id) ? n.delete(e.id) : n.add(e.id); return n; })} /></td>
                 <td style={{ minWidth: 180 }}><Cell label={t("Name of {name}", { name: e.name })} value={e.name} onCommit={(v) => v.trim() && up(e, { name: v.trim() })} /></td>
                 <td className="muted" style={{ whiteSpace: "nowrap" }}>
-                  <button className="btn ghost" style={{ padding: 0 }} title={t("Show in diagrams")} onClick={() => (select([e.id]), set({ page: "diagram" }))}>{registry.elementType(e.type)?.name ?? e.type}</button>
+                  <button className="btn ghost sm" style={{ padding: "0 6px", marginLeft: -6, color: "var(--muted)", fontWeight: 400 }} title={t("Show in diagrams")} onClick={() => (select([e.id]), set({ page: "diagram" }))}>{registry.elementType(e.type)?.name ?? e.type}</button>
                 </td>
-                <td><Cell label={t("Owner of {name}", { name: e.name })} value={e.owner ?? ""} onCommit={(v) => up(e, { owner: v || undefined })} /></td>
+                <td style={{ minWidth: 150 }}><Cell label={t("Owner of {name}", { name: e.name })} value={e.owner ?? ""} onCommit={(v) => up(e, { owner: v || undefined })} /></td>
                 <td>
                   <select aria-label={t("Lifecycle of {name}", { name: e.name })} value={e.lifecycle?.phase ?? ""} onChange={(ev) => up(e, { lifecycle: { ...e.lifecycle, phase: (ev.target.value || undefined) as never } })}>
                     <option value="">—</option>
@@ -143,10 +144,10 @@ export function FactSheetsPage() {
                   </select>
                 </td>
                 {portfolio.map((d) => (
-                  <td key={d.key}><Cell label={t("{field} of {name}", { field: d.label, name: e.name })} def={d} value={String(e.properties[d.key] ?? "")} onCommit={(v) => setProp(e, d.key, v, d)} /></td>
+                  <td key={d.key} style={{ minWidth: d.type === "number" ? 110 : 150 }}><Cell label={t("{field} of {name}", { field: d.label, name: e.name })} def={d} value={String(e.properties[d.key] ?? "")} onCommit={(v) => setProp(e, d.key, v, d)} /></td>
                 ))}
                 <td><Cell label={t("Tags of {name}", { name: e.name })} value={e.tags.join(", ")} onCommit={(v) => up(e, { tags: v.split(",").map((x) => x.trim()).filter(Boolean) })} /></td>
-                <td>{e.links.map((l, i) => <a key={i} href={l.href} target="_blank" rel="noreferrer" style={{ marginRight: 6, color: "var(--accent)" }}>{l.kind}</a>)}</td>
+                <td>{e.links.map((l, i) => <a key={i} href={safeHref(l.href)} target="_blank" rel="noreferrer" className="badge accent" style={{ marginRight: 4 }}>{l.kind}</a>)}</td>
               </tr>
             ))}
           </tbody>

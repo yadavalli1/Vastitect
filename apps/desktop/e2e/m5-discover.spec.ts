@@ -50,3 +50,52 @@ test("every connector runs on its fixture", async ({ page }) => {
   const ws = await state(page);
   expect(Object.values(ws.elements).some((e: any) => e.name === "orders-db" && e.properties.kind === "Database")).toBe(true);
 });
+
+test("ServiceNow CMDB, Google Cloud and Azure run from exported files", async ({ page }) => {
+  await page.goto("/");
+  await newWorkspace(page, "m5-cloud");
+  // ServiceNow shows its live-connection fields, with secrets as password inputs, but files alone are enough
+  await page.getByRole("button", { name: "Discover", exact: true }).first().click();
+  const p = page.getByTestId("discover-page");
+  await p.getByRole("button", { name: "ServiceNow CMDB" }).click();
+  await expect(p.getByLabel("Password")).toHaveAttribute("type", "password");
+  for (const [connector, files, text] of [
+    ["ServiceNow CMDB", ["servicenow/cmdb_ci_business_app.json", "servicenow/cmdb_ci_appl.json", "servicenow/servers.csv", "servicenow/cmdb_rel_ci.json"], "ServiceNow: 8 configuration item(s), 8 relationship(s)"],
+    ["Google Cloud (read-only)", ["gcp/gcloud-config-get-value-project.json", "gcp/gcloud-compute-instances-list.json", "gcp/gcloud-compute-networks-list.json", "gcp/gcloud-compute-networks-subnets-list.json"], "Google Cloud: 3 resource(s) in project shop-prod-123"],
+    ["Microsoft Azure (read-only)", ["azure/az-account-show.json", "azure/az-group-list.json", "azure/az-resource-list.json"], "Azure: 6 resource(s) in 2 resource group(s)"],
+  ] as const) {
+    await discover(page, connector, [...files]);
+    await expect(page.getByTestId("review")).toContainText(text);
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByTestId("review")).toBeHidden();
+  }
+  const names = Object.values((await state(page)).elements).map((e: any) => e.name);
+  expect(names).toEqual(expect.arrayContaining(["Online Shop", "lnx-db-01", "api-1", "aks-shop", "pg-orders"]));
+});
+
+test("runtime traces are compared with the sample model", async ({ page }) => {
+  await page.goto("/");
+  await newWorkspace(page, "m5-traces", "sample");
+  await discover(page, "Runtime traces (OpenTelemetry, Jaeger, Zipkin, Datadog)", ["traces/datadog-service-dependencies.json"]);
+  const review = page.getByTestId("review");
+  await expect(review).toContainText("Traces (Datadog service dependencies): 4 service(s)");
+  await expect(review).toContainText("Observed but not modelled");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await openView(page, "Runtime dependencies – observed");
+  await expect(node(page, "payments")).toBeVisible();
+});
+
+test("enterprise tools and work items import through Discover", async ({ page }) => {
+  await page.goto("/");
+  await newWorkspace(page, "m5-ent", "sample");
+  for (const [connector, files, text] of [
+    ["Sparx Enterprise Architect (XMI)", ["enterprise/sparx.xmi"], "Sparx EA: 6 element(s) in 1 package(s)"],
+    ["LeanIX (import)", ["enterprise/leanix-graphql.json"], "LeanIX: 5 fact sheet(s)"],
+    ["Jira work items", ["workitems/jira-export.csv"], "Jira: 4 work item(s)"],
+  ] as const) {
+    await discover(page, connector, [...files]);
+    await expect(page.getByTestId("review")).toContainText(text);
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByTestId("review")).toBeHidden();
+  }
+});

@@ -52,3 +52,4 @@ export default definePlugin({
   },
 });
 export * from "./pdf";
+export * from "./vectorpdf";

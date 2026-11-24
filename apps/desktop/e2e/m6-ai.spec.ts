@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { newWorkspace, openView, state } from "./helpers";
+import { newWorkspace, openView, state, go } from "./helpers";
 
-const go = (page: import("@playwright/test").Page, section: string) => page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: section, exact: true }).click();
 
 test("the assistant is off by default and makes no network calls", async ({ page }) => {
   const external: string[] = [];

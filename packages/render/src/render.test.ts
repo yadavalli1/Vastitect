@@ -32,4 +32,18 @@ describe("svg export", () => {
     expect(svg).toContain("calls &lt;api&gt;");
     expect(svg.match(/<path d="M/g)!.length).toBeGreaterThanOrEqual(3);
   });
+
+  it("never lets a style fill break out of its attribute", () => {
+    const reg = new Registry();
+    reg.registerPack({ id: "x", name: "X", elementTypes: [{ id: "x:Box", name: "Box", shape: "rect" }], relationshipTypes: [], viewpoints: [] });
+    const ws = emptyWorkspace();
+    const a = makeElement("x:Box", "A");
+    ws.elements[a.id] = a;
+    const bad = '#fff"/><script>alert(1)</script><path d="';
+    const v = makeView("x", "V", { nodes: [{ element: a.id, x: 0, y: 0, w: 100, h: 50, style: { fill: bad } }] });
+    const svg = viewToSvg(ws, v, reg);
+    expect(svg).not.toContain("<script");
+    const ok = makeView("x", "V", { nodes: [{ element: a.id, x: 0, y: 0, w: 100, h: 50, style: { fill: "#a1b2c3" } }] });
+    expect(viewToSvg(ws, ok, reg)).toContain('fill="#a1b2c3"');
+  });
 });

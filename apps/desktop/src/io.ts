@@ -2,7 +2,6 @@ import type { ExportResult, Exporter, ImportInput, Importer, ModelPatch } from "
 import { app, model, registry, set, toast } from "./state";
 import { pickFiles, saveFile } from "./platform";
 import { contributeCommands } from "./commands";
-import { zip } from "@vastitecture/io-formats";
 import { t } from "./i18n";
 
 const ext = (name: string) => name.slice(name.lastIndexOf(".") + 1).toLowerCase();
@@ -63,6 +62,7 @@ const MIME: Record<string, string> = { svg: "image/svg+xml", png: "image/png", p
 export async function saveExport(result: ExportResult, base: string, extension: string) {
   if (typeof result === "string" || result instanceof Uint8Array) return saveFile(`${base}.${extension}`, result, MIME[extension]);
   // Several files (e.g. a static site): delivered as one zip archive.
+  const { zip } = await import("@vastitecture/io-formats");
   await saveFile(`${base}.zip`, zip(result), MIME.zip);
 }
 

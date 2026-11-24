@@ -22,13 +22,25 @@ pub fn is_workspace_path(rel: &str) -> bool {
         || rel == "model/relationships.yaml"
         || ((rel.starts_with("model/elements/") || rel.starts_with("views/")) && rel.ends_with(".yaml"))
         || (rel.starts_with("adrs/") && rel.ends_with(".md"))
+        || (rel.starts_with("comments/") && rel.ends_with(".yaml"))
 }
 
-/// Resolve a workspace-relative path, refusing anything that escapes the root.
+/// Resolve a workspace-relative path, refusing anything that escapes the root: absolute paths, `..`,
+/// and symbolic links anywhere below the root (a workspace may come from someone else's repository,
+/// and a committed link such as `adrs -> ..` would otherwise let saves reach files outside it).
 pub fn resolve(root: &Path, rel: &str) -> Result<PathBuf> {
     let p = Path::new(rel);
-    if p.is_absolute() || p.components().any(|c| !matches!(c, Component::Normal(_))) {
+    if rel.is_empty() || p.is_absolute() || p.components().any(|c| !matches!(c, Component::Normal(_))) {
         return Err(format!("Refusing path outside the workspace: {rel}"));
+    }
+    let mut cur = root.to_path_buf();
+    for c in p.components() {
+        cur.push(c);
+        match fs::symlink_metadata(&cur) {
+            Ok(m) if m.file_type().is_symlink() => return Err(format!("Refusing path through a symbolic link: {rel}")),
+            Ok(_) => {}
+            Err(_) => break, // the rest does not exist yet, so it cannot be a link
+        }
     }
     Ok(root.join(p))
 }
@@ -45,8 +57,11 @@ fn walk(dir: &Path, prefix: &str, out: &mut BTreeMap<String, String>) -> Result<
             continue;
         }
         let rel = format!("{prefix}{name}");
+        // file_type() does not follow links: symbolic links are skipped, so nothing outside the root is read.
         let ty = entry.file_type().map_err(err)?;
-        if ty.is_dir() {
+        if ty.is_symlink() {
+            continue;
+        } else if ty.is_dir() {
             walk(&entry.path(), &format!("{rel}/"), out)?;
         } else if is_workspace_path(&rel) {
             out.insert(rel, fs::read_to_string(entry.path()).map_err(err)?);
@@ -59,11 +74,14 @@ fn walk(dir: &Path, prefix: &str, out: &mut BTreeMap<String, String>) -> Result<
 pub fn read_all(root: &Path) -> Result<BTreeMap<String, String>> {
     let mut out = BTreeMap::new();
     let settings = root.join("vastitecture.yaml");
-    if settings.is_file() {
+    if fs::symlink_metadata(&settings).map(|m| m.is_file()).unwrap_or(false) {
         out.insert("vastitecture.yaml".into(), fs::read_to_string(settings).map_err(err)?);
     }
-    for dir in ["model", "views", "adrs"] {
-        walk(&root.join(dir), &format!("{dir}/"), &mut out)?;
+    for dir in ["model", "views", "adrs", "comments"] {
+        let path = root.join(dir);
+        if fs::symlink_metadata(&path).map(|m| m.is_dir()).unwrap_or(false) {
+            walk(&path, &format!("{dir}/"), &mut out)?;
+        }
     }
     Ok(out)
 }
@@ -111,8 +129,29 @@ pub struct GitInfo {
     pub files: Vec<GitFile>,
 }
 
+/// Settings a repository's own `.git/config` could use to run a program. The workspace may come from
+/// someone else (an archive with its `.git` folder), so these are overridden on every call.
+const GIT_SAFE: [&str; 16] = [
+    "-c", "core.fsmonitor=false",
+    "-c", "core.hooksPath=",
+    "-c", "log.showSignature=false",
+    "-c", "gpg.program=false",
+    "-c", "diff.external=",
+    "-c", "core.pager=cat",
+    "-c", "protocol.allow=never",
+    "-c", "core.sshCommand=false",
+];
+
 fn git(root: &Path, args: &[&str]) -> Option<String> {
-    let out = Command::new("git").arg("-C").arg(root).args(args).output().ok()?;
+    let out = Command::new("git")
+        .args(GIT_SAFE)
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env_remove("GIT_EXTERNAL_DIFF")
+        .output()
+        .ok()?;
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).to_string())
 }
 
@@ -135,13 +174,116 @@ pub fn git_status(root: &Path) -> GitInfo {
 /// Unified diff of one workspace file against HEAD.
 pub fn git_diff(root: &Path, rel: &str) -> Result<String> {
     resolve(root, rel)?;
-    Ok(git(root, &["diff", "HEAD", "--", rel]).unwrap_or_default())
+    Ok(git(root, &["diff", "--no-ext-diff", "--no-textconv", "HEAD", "--", rel]).unwrap_or_default())
+}
+
+/// A revision name a user may pick: a commit hash, branch, tag or HEAD~n. Never an option.
+fn safe_rev(rev: &str) -> bool {
+    !rev.is_empty() && rev.len() <= 80 && !rev.starts_with('-') && rev.chars().all(|c| c.is_ascii_alphanumeric() || "_./~^-".contains(c)) && !rev.contains("..")
+}
+
+
+/// The workspace's files as they were at a revision (for comparing the model with an earlier version).
+pub fn git_files_at(root: &Path, rev: &str) -> Result<std::collections::BTreeMap<String, String>> {
+    if !safe_rev(rev) {
+        return Err(format!("Not a revision name: {rev}"));
+    }
+    let list = git(root, &["ls-tree", "-r", "--name-only", rev, "--", "."]).ok_or_else(|| format!("{rev} is not a revision of this repository, or the workspace is not under Git"))?;
+    let mut out = std::collections::BTreeMap::new();
+    for p in list.lines().filter(|p| is_workspace_path(p)) {
+        if let Some(text) = git(root, &["show", "--no-textconv", &format!("{rev}:./{p}")]) {
+            out.insert(p.to_string(), text);
+        }
+    }
+    Ok(out)
+}
+
+/// One file of a folder the user picked for discovery. Text is read only for small files that connectors
+/// parse (specs, manifests, state, exports); other files are listed by name, which is enough to detect languages.
+#[derive(Serialize, Debug, PartialEq)]
+pub struct TreeFile {
+    pub path: String,
+    pub text: Option<String>,
+}
+
+const SKIP_DIRS: [&str; 9] = ["node_modules", "vendor", "dist", "build", "target", "__pycache__", ".venv", "venv", ".vastitecture"];
+const TEXT_EXT: [&str; 13] = ["yaml", "yml", "json", "tfstate", "xml", "xmi", "csv", "toml", "gradle", "mod", "md", "txt", "lock"];
+const TEXT_NAMES: [&str; 6] = ["Dockerfile", "CODEOWNERS", "Gemfile", "Makefile", "Procfile", "config"];
+
+/// Read a folder for the discovery connectors, depth-first, at most `limit` entries and 2 MB per file.
+pub fn read_tree(root: &Path, limit: usize) -> Result<Vec<TreeFile>> {
+    let base = root.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    let mut out = Vec::new();
+    let mut stack = vec![(root.to_path_buf(), format!("{base}/"))];
+    while let Some((dir, prefix)) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        let mut entries: Vec<_> = entries.flatten().collect();
+        entries.sort_by_key(|e| e.file_name());
+        for entry in entries {
+            if out.len() >= limit {
+                return Ok(out);
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let Ok(ty) = entry.file_type() else { continue };
+            let rel = format!("{prefix}{name}");
+            let in_git = prefix.ends_with(".git/");
+            if ty.is_dir() {
+                if !in_git && !SKIP_DIRS.contains(&name.as_str()) && (!name.starts_with('.') || name == ".git" || name == ".github") {
+                    stack.push((entry.path(), format!("{rel}/")));
+                }
+                continue;
+            }
+            if in_git && name != "config" {
+                continue;
+            }
+            let ext = name.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase()).unwrap_or_default();
+            let wanted = TEXT_EXT.contains(&ext.as_str()) || TEXT_NAMES.contains(&name.as_str());
+            let small = entry.metadata().map(|m| m.len() <= 2_000_000).unwrap_or(false);
+            out.push(TreeFile { path: rel, text: if wanted && small { fs::read_to_string(entry.path()).ok() } else { None } });
+        }
+    }
+    Ok(out)
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+pub struct GitCommit {
+    pub hash: String,
+    pub subject: String,
+    pub date: String,
+}
+
+/// Recent commits that touched the workspace.
+pub fn git_log(root: &Path, limit: usize) -> Vec<GitCommit> {
+    git(root, &["log", "--no-show-signature", &format!("-n{}", limit.min(200)), "--format=%h%x1f%s%x1f%cs", "--", "."])
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| {
+            let mut p = l.split('\x1f');
+            Some(GitCommit { hash: p.next()?.to_string(), subject: p.next()?.to_string(), date: p.next()?.to_string() })
+        })
+        .collect()
 }
 
 #[derive(Serialize, Debug, PartialEq)]
 pub struct SearchHit {
     pub path: String,
     pub snippet: String,
+}
+
+/// A stable file name for per-workspace caches: FNV-1a of the canonical path, in hex.
+pub fn path_key(root: &Path) -> String {
+    let canon = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in canon.to_string_lossy().as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    format!("{h:016x}")
+}
+
+/// True when `host` matches one of a plugin manifest's network entries: an exact name, `*`, or `*.suffix`.
+pub fn host_allowed(allowed: &[String], host: &str) -> bool {
+    allowed.iter().any(|h| h == "*" || h == host || (h.starts_with("*.") && host.ends_with(&h[1..])))
 }
 
 /// Full-text index over the workspace files. A cache: it can be deleted at any time and is rebuilt from the files.
@@ -156,13 +298,15 @@ impl SearchIndex {
                 if let Some(dir) = p.parent() {
                     fs::create_dir_all(dir).map_err(err)?;
                 }
-                Connection::open(p)
+                let flags = rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_CREATE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW;
+                Connection::open_with_flags(p, flags)
             }
             None => Connection::open_in_memory(),
         }
         .map_err(err)?;
         conn.execute_batch(
-            "CREATE VIRTUAL TABLE IF NOT EXISTS docs USING fts5(path UNINDEXED, body, tokenize='unicode61 remove_diacritics 2');
+            "PRAGMA trusted_schema = OFF;
+             CREATE VIRTUAL TABLE IF NOT EXISTS docs USING fts5(path UNINDEXED, body, tokenize='unicode61 remove_diacritics 2');
              CREATE TABLE IF NOT EXISTS seen(path TEXT PRIMARY KEY, hash INTEGER NOT NULL);",
         )
         .map_err(err)?;
@@ -231,6 +375,62 @@ impl SearchIndex {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
+    #[test]
+    fn symbolic_links_never_lead_outside_the_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(outside.join("a")).unwrap();
+        fs::write(outside.join("a/README.md"), "mine").unwrap();
+        let root = dir.path().join("ws");
+        fs::create_dir_all(root.join("model")).unwrap();
+        fs::write(root.join("vastitecture.yaml"), "name: x\n").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("adrs")).unwrap();
+        std::os::unix::fs::symlink(outside.join("a/README.md"), root.join("model/relationships.yaml")).unwrap();
+        // links are not followed when reading
+        let files = read_all(&root).unwrap();
+        assert_eq!(files.keys().collect::<Vec<_>>(), vec!["vastitecture.yaml"]);
+        // and writes or deletes through them are refused
+        assert!(write_file(&root, "adrs/a/README.md", "x").is_err());
+        assert!(remove_file(&root, "adrs/a/README.md").is_err());
+        assert!(write_file(&root, "model/relationships.yaml", "x").is_err());
+        assert_eq!(fs::read_to_string(outside.join("a/README.md")).unwrap(), "mine");
+        // ordinary paths still work
+        write_file(&root, "views/v.yaml", "id: v\n").unwrap();
+        assert!(resolve(&root, "../x").is_err() && resolve(&root, "").is_err());
+    }
+
+    #[test]
+    fn git_ignores_repository_settings_that_run_programs() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let run = |args: &[&str]| Command::new("git").arg("-C").arg(root).args(args).output().unwrap();
+        if run(&["init", "-q"]).status.code() != Some(0) {
+            return; // git not installed
+        }
+        let marker = root.join("ran");
+        let script = root.join("prog.sh");
+        fs::write(&script, format!("#!/bin/sh\ntouch '{}'\nexit 1\n", marker.display())).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let prog = script.to_string_lossy().to_string();
+        for (k, v) in [("core.fsmonitor", prog.as_str()), ("diff.external", prog.as_str()), ("log.showSignature", "true"), ("gpg.program", prog.as_str())] {
+            run(&["config", k, v]);
+        }
+        write_file(root, "vastitecture.yaml", "name: a\n").unwrap();
+        run(&["-c", "core.fsmonitor=false", "add", "vastitecture.yaml"]);
+        run(&["-c", "core.fsmonitor=false", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "one"]);
+        write_file(root, "vastitecture.yaml", "name: b\n").unwrap();
+        let _ = git_status(root);
+        let _ = git_diff(root, "vastitecture.yaml");
+        let _ = git_log(root, 5);
+        let _ = git_files_at(root, "HEAD");
+        assert!(!marker.exists(), "a repository setting ran a program");
+    }
+
     #[test]
     fn reads_only_workspace_files_and_writes_atomically() {
         let dir = tempfile::tempdir().unwrap();
@@ -278,6 +478,55 @@ mod tests {
         assert_eq!(idx.sync(&files).unwrap(), 1);
         assert!(idx.search("payment", 10).unwrap().is_empty());
         assert!(idx.search("customer", 10).unwrap().is_empty());
+    }
+
+    #[test]
+    fn git_files_at_reads_a_committed_workspace_and_refuses_options() {
+        let dir = std::env::temp_dir().join(format!("vast-git-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("ws/model/elements/c4/container")).unwrap();
+        let run = |args: &[&str]| assert!(Command::new("git").arg("-C").arg(&dir).args(args).output().unwrap().status.success(), "git {args:?}");
+        run(&["init", "-q"]);
+        run(&["config", "user.email", "t@example.com"]);
+        run(&["config", "user.name", "t"]);
+        fs::write(dir.join("ws/vastitecture.yaml"), "format: 1\nname: A\n").unwrap();
+        fs::write(dir.join("ws/model/elements/c4/container/api.yaml"), "id: x\n").unwrap();
+        fs::write(dir.join("ws/notes.txt"), "not part of the model").unwrap();
+        run(&["add", "."]);
+        run(&["commit", "-qm", "first"]);
+        fs::write(dir.join("ws/vastitecture.yaml"), "format: 1\nname: B\n").unwrap();
+        let ws = dir.join("ws");
+        let files = git_files_at(&ws, "HEAD").unwrap();
+        assert_eq!(files.keys().collect::<Vec<_>>(), vec!["model/elements/c4/container/api.yaml", "vastitecture.yaml"]);
+        assert_eq!(files["vastitecture.yaml"], "format: 1\nname: A\n");
+        assert!(git_files_at(&ws, "--output=/tmp/x").is_err());
+        assert!(git_files_at(&ws, "HEAD..main").is_err());
+        assert_eq!(git_log(&ws, 5).iter().map(|c| c.subject.as_str()).collect::<Vec<_>>(), vec!["first"]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_all_includes_comments_and_read_tree_skips_build_output() {
+        let dir = std::env::temp_dir().join(format!("vast-tree-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        for p in ["ws/comments", "ws/model/elements/c4/container", "repo/node_modules/x", "repo/.git/objects", "repo/k8s"] {
+            fs::create_dir_all(dir.join(p)).unwrap();
+        }
+        fs::write(dir.join("ws/vastitecture.yaml"), "format: 1\nname: A\n").unwrap();
+        fs::write(dir.join("ws/comments/01a.yaml"), "id: 01a\n").unwrap();
+        let files = read_all(&dir.join("ws")).unwrap();
+        assert!(files.contains_key("comments/01a.yaml"));
+        fs::write(dir.join("repo/k8s/app.yaml"), "kind: Deployment\n").unwrap();
+        fs::write(dir.join("repo/main.go"), "package main").unwrap();
+        fs::write(dir.join("repo/node_modules/x/index.json"), "{}").unwrap();
+        fs::write(dir.join("repo/.git/config"), "[remote]").unwrap();
+        fs::write(dir.join("repo/.git/objects/ab"), "x").unwrap();
+        let tree = read_tree(&dir.join("repo"), 100).unwrap();
+        let mut got: Vec<_> = tree.iter().map(|f| (f.path.as_str(), f.text.is_some())).collect();
+        got.sort();
+        assert_eq!(got, vec![("repo/.git/config", true), ("repo/k8s/app.yaml", true), ("repo/main.go", false)]);
+        assert_eq!(read_tree(&dir.join("repo"), 1).unwrap().len(), 1);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -392,5 +641,155 @@ mod aws_tests {
         assert!(!aws_read_only("ec2", "describe-instances --dry-run"));
         assert!(!aws_read_only("ec2;rm", "describe-x"));
         assert!(aws_cli("ec2", "run-instances", None, None).is_err());
+    }
+}
+
+/// Open a directory in the platform's file manager (Finder, Explorer, or the desktop's default).
+pub fn reveal_folder(path: &Path) -> Result<()> {
+    if !path.is_dir() {
+        return Err(format!("{} is not a folder", path.display()));
+    }
+    let program = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "windows") {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    Command::new(program).arg(path).spawn().map(|_| ()).map_err(|e| format!("Could not open the folder: {e}"))
+}
+
+/// Words that make a cloud CLI change something (as a command or a command prefix such as `create-for-rbac`).
+/// `run` is not listed: it is also the Cloud Run command group (`gcloud run services list`).
+const MUTATING: [&str; 61] = [
+    "create", "delete", "set", "unset", "update", "add", "remove", "start", "stop", "restart", "deploy", "import",
+    "export", "reset", "enable", "disable", "attach", "detach", "assign", "grant", "revoke", "apply", "patch",
+    "replace", "exec", "execute", "invoke", "move", "copy", "cp", "rm", "mv", "upload", "download", "login",
+    "logout", "activate", "purge", "rotate", "renew", "regenerate", "scale", "resize", "upgrade", "rollback",
+    "restore", "failover", "promote", "cancel", "approve", "reject", "publish", "sign", "swap", "mount", "unmount",
+    "lock", "unlock", "ssh", "connect", "register",
+];
+
+fn mutating_verb(word: &str) -> bool {
+    MUTATING.iter().any(|v| word == *v || word.starts_with(&format!("{v}-")))
+}
+
+/// Read-only cloud CLI calls for discovery. Only listing and describing verbs are accepted, flags come
+/// from a short allow-list, and every value is restricted to a safe character set, so no plugin or
+/// connector can make the user's cloud login change anything.
+pub fn cloud_read_only(tool: &str, args: &[String]) -> Result<()> {
+    let word = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    // kubectl takes a comma-separated resource list: `get deployments,services`.
+    let resources = |s: &str| !s.is_empty() && s.len() <= 200 && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == ',' || c == '.');
+    if tool == "kubectl" {
+        return if args.len() == 2 && args[0] == "get" && resources(&args[1]) && !args[1].split(',').any(|r| r.starts_with("secret")) {
+            Ok(())
+        } else {
+            Err(format!("Refusing kubectl {}: only `kubectl get <resources>` (never secrets) is allowed", args.join(" ")))
+        };
+    }
+    if args.is_empty() || args.len() > 6 || !args.iter().all(|a| word(a) && !a.starts_with('-')) {
+        return Err(format!("Refusing {tool} command: arguments must be plain lowercase words, without options"));
+    }
+    // The read verb must be the last word, and nothing before it may be a verb that changes something:
+    // otherwise `gcloud config set project list` or `az group delete show` would pass the last-word check.
+    if args[..args.len() - 1].iter().any(|a| mutating_verb(a)) {
+        return Err(format!("Refusing {tool} {}: only read-only list/describe/show commands are allowed", args.join(" ")));
+    }
+    let verb = args.last().unwrap().as_str();
+    let ok = match tool {
+        "aws" => args.len() == 2 && (verb.starts_with("describe-") || verb.starts_with("list-") || (args[0] == "sts" && verb == "get-caller-identity")),
+        "gcloud" => matches!(verb, "list" | "describe") || args == ["config", "get-value", "project"],
+        "az" => matches!(verb, "list" | "show"),
+        _ => return Err(format!("Unknown cloud CLI {tool}")),
+    };
+    if ok { Ok(()) } else { Err(format!("Refusing {tool} {}: only read-only list/describe/show commands are allowed", args.join(" "))) }
+}
+
+/// Run one read-only cloud CLI command with the user's own login and return its JSON output.
+/// `flags` are (name, value) pairs such as ("--profile", "dev"); names must be on the tool's allow-list.
+pub fn cloud_cli(tool: &str, args: &[String], flags: &[(String, String)]) -> Result<String> {
+    cloud_read_only(tool, args)?;
+    let allowed: &[&str] = match tool {
+        "aws" => &["--profile", "--region"],
+        "gcloud" => &["--project"],
+        "az" => &["--subscription"],
+        "kubectl" => &["--context", "--namespace"],
+        _ => &[],
+    };
+    let safe = |s: &str| !s.is_empty() && s.len() <= 128 && s.chars().all(|c| c.is_ascii_alphanumeric() || " -_.".contains(c));
+    let mut cmd = Command::new(if cfg!(windows) && (tool == "gcloud" || tool == "az") { format!("{tool}.cmd") } else { tool.to_string() });
+    cmd.args(args);
+    match tool {
+        "aws" => cmd.args(["--output", "json", "--no-cli-pager"]),
+        "gcloud" => cmd.args(["--format=json", "--quiet"]),
+        "kubectl" => {
+            if !flags.iter().any(|(n, v)| n == "--namespace" && !v.is_empty()) {
+                cmd.arg("--all-namespaces");
+            }
+            cmd.args(["-o", "json", "--request-timeout=20s"])
+        }
+        _ => cmd.args(["-o", "json", "--only-show-errors"]),
+    };
+    for (name, value) in flags {
+        if value.is_empty() {
+            continue;
+        }
+        if !allowed.contains(&name.as_str()) || !safe(value) {
+            return Err(format!("Refusing flag {name} for {tool}"));
+        }
+        cmd.args([name.as_str(), value.as_str()]);
+    }
+    let out = cmd.output().map_err(|e| format!("Could not run {tool} ({e}). Is it installed, on PATH, and signed in?"))?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}
+
+#[cfg(test)]
+mod cloud_tests {
+    use super::*;
+    fn a(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn kubectl_may_only_get_non_secret_resources() {
+        assert!(cloud_read_only("kubectl", &a(&["get", "deployments,statefulsets,services,ingresses.networking.k8s.io"])).is_ok());
+        assert!(cloud_read_only("kubectl", &a(&["get", "secrets"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["get", "pods,secret"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["delete", "pods"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["get", "pods", "--kubeconfig=/x"])).is_err());
+        assert!(cloud_read_only("kubectl", &a(&["get", "pods;rm"])).is_err());
+    }
+
+    #[test]
+    fn only_read_only_cloud_commands_are_allowed() {
+        assert!(cloud_read_only("gcloud", &a(&["compute", "instances", "list"])).is_ok());
+        assert!(cloud_read_only("gcloud", &a(&["config", "get-value", "project"])).is_ok());
+        assert!(cloud_read_only("az", &a(&["network", "vnet", "list"])).is_ok());
+        assert!(cloud_read_only("az", &a(&["account", "show"])).is_ok());
+        assert!(cloud_read_only("aws", &a(&["ec2", "describe-vpcs"])).is_ok());
+        assert!(cloud_read_only("gcloud", &a(&["compute", "instances", "delete"])).is_err());
+        assert!(cloud_read_only("gcloud", &a(&["config", "set", "project"])).is_err());
+        assert!(cloud_read_only("az", &a(&["vm", "delete"])).is_err());
+        assert!(cloud_read_only("az", &a(&["group", "list;rm"])).is_err());
+        assert!(cloud_read_only("az", &a(&["vm", "list", "--query"])).is_err());
+        assert!(cloud_read_only("terraform", &a(&["show"])).is_err());
+        // the last word alone used to decide: these mutate although they end in a read verb
+        assert!(cloud_read_only("gcloud", &a(&["config", "set", "project", "list"])).is_err());
+        assert!(cloud_read_only("gcloud", &a(&["iam", "service-accounts", "create", "describe"])).is_err());
+        assert!(cloud_read_only("az", &a(&["ad", "sp", "create-for-rbac", "--name", "show"])).is_err());
+        assert!(cloud_read_only("az", &a(&["group", "delete", "--yes", "--name", "show"])).is_err());
+        assert!(cloud_read_only("az", &a(&["group", "delete", "show"])).is_err());
+        for c in [&["run", "services", "list"][..], &["sql", "instances", "list"], &["storage", "buckets", "list"], &["pubsub", "topics", "list"]] {
+            assert!(cloud_read_only("gcloud", &a(c)).is_ok(), "{c:?}");
+        }
+        for c in [&["postgres", "flexible-server", "list"][..], &["servicebus", "namespace", "list"], &["resource", "list"], &["functionapp", "list"]] {
+            assert!(cloud_read_only("az", &a(c)).is_ok(), "{c:?}");
+        }
+        assert!(cloud_cli("az", &a(&["vm", "list"]), &[("--resource-group".into(), "x".into())]).is_err());
+        assert!(cloud_cli("gcloud", &a(&["compute", "instances", "list"]), &[("--project".into(), "a;b".into())]).is_err());
     }
 }

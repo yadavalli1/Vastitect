@@ -92,7 +92,7 @@ export async function parseDrawio(text: string, fileName = "diagram.drawio"): Pr
       e.properties.drawioStyle = String(c["@style"] ?? "");
       byCell.set(String(c["@id"]), e);
       elements.push(e);
-      view.nodes.push({ element: e.id, ...g, ...(st.fillColor && /^#/.test(st.fillColor) ? { style: { fill: st.fillColor } } : {}) });
+      view.nodes.push({ element: e.id, ...g, ...(st.fillColor && HEX.test(st.fillColor) ? { style: { fill: st.fillColor } } : {}) });
     }
     // Nesting: a vertex whose parent is another vertex sits inside it (draw.io geometry is already parent-relative).
     for (const c of cells) {
@@ -139,6 +139,10 @@ const STYLE: Record<string, string> = {
   "c4:Person": "shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;",
 };
 const xesc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\n/g, "&#10;");
+/** draw.io reads the value of an `html=1` cell as HTML, so plain model text is HTML-escaped first, then XML-escaped. */
+const hesc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const cellText = (s: unknown, style: string) => xesc(/(^|;)html=1(;|$)/.test(style) ? hesc(s) : s);
+const HEX = /^#[0-9a-fA-F]{3,8}$/;
 
 /** Export views as an uncompressed draw.io file (one page per view). */
 export function writeDrawio(ws: Workspace, viewIds: Id[]): string {
@@ -153,23 +157,23 @@ export function writeDrawio(ws: Workspace, viewIds: Id[]): string {
       if (!e) continue;
       const kind = typeof e.properties.kind === "string" ? e.properties.kind : "";
       let style = typeof e.properties.drawioStyle === "string" && e.properties.drawioStyle ? e.properties.drawioStyle : STYLE[e.type] ?? (kind === "Database" ? STYLE["generic:Database"] : containers.has(n.element) ? STYLE["generic:Group"] : "rounded=1;whiteSpace=wrap;html=1;");
-      if (n.style?.fill) style += `fillColor=${n.style.fill};`;
+      if (n.style?.fill && HEX.test(String(n.style.fill))) style += `fillColor=${n.style.fill};`;
       const tech = typeof e.properties.technology === "string" ? `\n[${e.properties.technology}]` : "";
       const parentRef = n.parent && v.nodes.some((x) => x.element === n.parent) ? xesc(cid(n.parent)) : "1";
       const geometry = `<mxGeometry x="${Math.round(n.x)}" y="${Math.round(n.y)}" width="${Math.round(n.w)}" height="${Math.round(n.h)}" as="geometry" />`;
       // Descriptions travel as draw.io tooltips, which needs the UserObject wrapper.
-      if (e.description) cells.push(`<UserObject label="${xesc(e.name + tech)}" tooltip="${xesc(e.description)}" id="${xesc(cid(n.element))}"><mxCell style="${xesc(style)}" vertex="1" parent="${parentRef}">${geometry}</mxCell></UserObject>`);
-      else cells.push(`<mxCell id="${xesc(cid(n.element))}" value="${xesc(e.name + tech)}" style="${xesc(style)}" vertex="1" parent="${parentRef}">${geometry}</mxCell>`);
+      if (e.description) cells.push(`<UserObject label="${cellText(e.name + tech, style)}" tooltip="${cellText(e.description, style)}" id="${xesc(cid(n.element))}"><mxCell style="${xesc(style)}" vertex="1" parent="${parentRef}">${geometry}</mxCell></UserObject>`);
+      else cells.push(`<mxCell id="${xesc(cid(n.element))}" value="${cellText(e.name + tech, style)}" style="${xesc(style)}" vertex="1" parent="${parentRef}">${geometry}</mxCell>`);
     }
     for (const a of v.annotations)
-      cells.push(`<mxCell id="${xesc("a-" + a.id)}" value="${xesc(a.text ?? "")}" style="${a.kind === "note" ? "shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;" : a.kind === "group" ? "rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=none;verticalAlign=top;" : "text;html=1;"}" vertex="1" parent="1"><mxGeometry x="${Math.round(a.x)}" y="${Math.round(a.y)}" width="${Math.round(a.w)}" height="${Math.round(a.h)}" as="geometry" /></mxCell>`);
+      cells.push(`<mxCell id="${xesc("a-" + a.id)}" value="${xesc(hesc(a.text ?? ""))}" style="${a.kind === "note" ? "shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;" : a.kind === "group" ? "rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=none;verticalAlign=top;" : "text;html=1;"}" vertex="1" parent="1"><mxGeometry x="${Math.round(a.x)}" y="${Math.round(a.y)}" width="${Math.round(a.w)}" height="${Math.round(a.h)}" as="geometry" /></mxCell>`);
     for (const ed of v.edges) {
       const r = ws.relationships[ed.relationship];
       if (!r || !v.nodes.some((n) => n.element === r.source) || !v.nodes.some((n) => n.element === r.target)) continue;
-      const label = [ed.order !== undefined ? `${ed.order}.` : "", r.label ?? "", r.technology ? `[${r.technology}]` : ""].filter(Boolean).join(" ");
+      const text = [ed.order !== undefined ? `${ed.order}.` : "", r.label ?? "", r.technology ? `[${r.technology}]` : ""].filter(Boolean).join(" ");
       const style = `edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;${r.type === "generic:Dashed" || r.type === "c4:Uses" ? "dashed=1;" : ""}${r.type === "generic:Line" ? "endArrow=none;" : ""}`;
       const pts = ed.waypoints?.length ? `<Array as="points">${ed.waypoints.map((p) => `<mxPoint x="${Math.round(p.x)}" y="${Math.round(p.y)}" />`).join("")}</Array>` : "";
-      cells.push(`<mxCell id="${xesc("r-" + r.id)}" value="${xesc(label)}" style="${style}" edge="1" parent="1" source="${xesc(cid(r.source))}" target="${xesc(cid(r.target))}"><mxGeometry relative="1" as="geometry">${pts}</mxGeometry></mxCell>`);
+      cells.push(`<mxCell id="${xesc("r-" + r.id)}" value="${xesc(hesc(text))}" style="${style}" edge="1" parent="1" source="${xesc(cid(r.source))}" target="${xesc(cid(r.target))}"><mxGeometry relative="1" as="geometry">${pts}</mxGeometry></mxCell>`);
     }
     return `  <diagram id="${xesc(v.id)}" name="${xesc(v.name)}">\n    <mxGraphModel dx="1000" dy="800" grid="1" gridSize="10" guides="1" page="0" math="0" shadow="0">\n      <root>\n        ${cells.join("\n        ")}\n      </root>\n    </mxGraphModel>\n  </diagram>`;
   });
