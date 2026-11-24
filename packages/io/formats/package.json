@@ -6,7 +6,7 @@
   "main": "src/index.ts",
   "dependencies": {
     "@vastitecture/plugin-sdk": "workspace:*",
-    "fast-xml-parser": "^4.5.0",
+    "fast-xml-parser": "^5.12.0",
     "@vastitecture/core": "workspace:*"
   },
   "devDependencies": {

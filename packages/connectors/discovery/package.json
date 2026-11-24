@@ -7,7 +7,7 @@
   "dependencies": {
     "@vastitecture/plugin-sdk": "workspace:*",
     "yaml": "^2.6.1",
-    "fast-xml-parser": "^4.5.0",
+    "fast-xml-parser": "^5.12.0",
     "@vastitecture/core": "workspace:*"
   },
   "devDependencies": {
