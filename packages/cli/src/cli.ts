@@ -1,7 +1,9 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import {
+  DEFAULT_MAPPINGS,
   Registry,
+  emptyWorkspace,
   STARTER_RULES,
   checkRules,
   diffWorkspaces,
@@ -26,6 +28,7 @@ import archimateIo from "@vastitecture/io-archimate";
 import cml from "@vastitecture/io-cml";
 import formats, { svgToPdfPage, writeVectorPdf } from "@vastitecture/io-formats";
 import { viewToSvg } from "@vastitecture/render";
+import { SAMPLES, sampleById } from "@vastitecture/samples";
 import { definePlugin } from "@vastitecture/plugin-sdk";
 
 /** The same built-in notations and formats as the app, activated in-process. Connectors are left out: the CLI never reaches the network. */
@@ -117,13 +120,16 @@ Usage:
   vastitecture export [dir] --format <exporter> [--view <name or id>] [--out <file or folder>]
   vastitecture formats [dir]
   vastitecture rules init [dir]
+  vastitecture new <dir> [--sample <id>]
+  vastitecture samples
 
 check   validates the model and runs the architecture rules in vastitecture.yaml. Exit code 1 when a
         problem at or above --fail-on (default: error) is found.
 diff    summarises what changed between two copies of a workspace (for example the base and head of
         a pull request) and which problems the change introduces or fixes.
 export  writes a workspace or view export (Structurizr DSL, ArchiMate exchange, Mermaid, PlantUML, …).
-rules init adds a starter set of rules to vastitecture.yaml.`;
+rules init adds a starter set of rules to vastitecture.yaml.
+new     creates a workspace in an empty folder: blank, or an industry sample (see \`samples\`).`;
 
 export async function run(argv: string[], io: Io): Promise<number> {
   const [cmd, ...rest] = argv;
@@ -146,6 +152,12 @@ export async function run(argv: string[], io: Io): Promise<number> {
       case "rules":
         if (pos[0] !== "init") throw new UsageError("Try: vastitecture rules init [dir]");
         return await rulesInit(resolve(io.cwd, pos[1] ?? "."), io);
+      case "new":
+        if (!pos[0]) throw new UsageError("Try: vastitecture new <dir> [--sample <id>]");
+        return await newCmd(resolve(io.cwd, pos[0]), opt, io);
+      case "samples":
+        for (const x of SAMPLES) io.out(`${x.id.padEnd(14)} ${`${x.industry}: ${x.name}`.padEnd(36)} ${x.description}`);
+        return 0;
       case undefined:
       case "help":
       case "--help":
@@ -270,6 +282,24 @@ async function exportCmd(dir: string, opt: Record<string, string | true>, io: Io
     }
     io.err(`Wrote ${Object.keys(result).length} file(s) to ${out}`);
   }
+  return 0;
+}
+
+async function newCmd(dir: string, opt: Record<string, string | true>, io: Io) {
+  const id = typeof opt.sample === "string" ? opt.sample : undefined;
+  if (opt.sample === true) throw new UsageError(`--sample needs an id. Available: ${SAMPLES.map((x) => x.id).join(", ")}`);
+  const sample = id ? sampleById(id) : undefined;
+  if (id && !sample) throw new UsageError(`Unknown sample "${id}". Available: ${SAMPLES.map((x) => x.id).join(", ")}`);
+  const existing = await readdir(dir).catch(() => [] as string[]);
+  if (existing.some((f) => !f.startsWith("."))) throw new UsageError(`${dir} is not empty; choose an empty or new folder`);
+  const ws: Workspace = sample ? sample.build() : { ...emptyWorkspace(dir.split(sep).pop() || "workspace", ["archimate", "c4", "ddd", "togaf", "generic"]), mappings: DEFAULT_MAPPINGS };
+  const { files } = toFiles(ws);
+  for (const [name, text] of Object.entries(files)) {
+    const p = join(dir, name);
+    await mkdir(dirname(p), { recursive: true });
+    await writeFile(p, text);
+  }
+  io.err(`Created ${sample ? `the ${sample.industry} sample (${sample.name})` : "a blank workspace"} in ${dir}: ${Object.keys(files).length} file(s).`);
   return 0;
 }
 

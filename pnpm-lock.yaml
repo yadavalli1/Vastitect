@@ -98,6 +98,9 @@ importers:
       '@vastitecture/render':
         specifier: workspace:*
         version: link:../../packages/render
+      '@vastitecture/samples':
+        specifier: workspace:*
+        version: link:../../packages/samples
       '@xyflow/react':
         specifier: ^12.3.5
         version: 12.12.1(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(immer@10.2.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -195,6 +198,9 @@ importers:
       '@vastitecture/render':
         specifier: workspace:*
         version: link:../render
+      '@vastitecture/samples':
+        specifier: workspace:*
+        version: link:../samples
     devDependencies:
       esbuild:
         specifier: 0.25.12
@@ -350,6 +356,12 @@ importers:
         version: link:../core
 
   packages/render:
+    dependencies:
+      '@vastitecture/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/samples:
     dependencies:
       '@vastitecture/core':
         specifier: workspace:*

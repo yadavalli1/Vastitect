@@ -14,11 +14,12 @@ export const files = (page: Page, ws: string) =>
     return out;
   }, `vastitecture/ws/${ws}/`);
 
-export async function newWorkspace(page: Page, name: string, template: "blank" | "sample" = "blank") {
+/** `template` is "blank", "sample" (the online shop) or an industry sample id such as "banking". */
+export async function newWorkspace(page: Page, name: string, template = "blank") {
   await page.getByRole("button", { name: /^Workspace:/ }).click();
   const dialog = page.getByRole("dialog", { name: "Workspace" });
   await dialog.getByLabel("Name").fill(name);
-  await dialog.getByLabel("Template").selectOption(template);
+  await dialog.getByLabel("Template").selectOption(template === "sample" ? "retail" : template);
   await page.getByRole("button", { name: "Create in browser storage" }).click();
   await expect(dialog).toBeHidden();
 }

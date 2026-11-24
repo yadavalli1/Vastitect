@@ -28,6 +28,9 @@
       "@vastitecture/plugin-sdk": [
         "packages/plugin-sdk/src/index.ts"
       ],
+      "@vastitecture/samples": [
+        "packages/samples/src/index.ts"
+      ],
       "@vastitecture/render": [
         "packages/render/src/index.ts"
       ],

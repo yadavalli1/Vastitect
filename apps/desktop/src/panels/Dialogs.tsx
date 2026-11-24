@@ -3,7 +3,7 @@ import { diffPatch } from "@vastitecture/core";
 import { app, blankWorkspace, model, openWorkspace, resolveConflict, set, toast, useApp } from "../state";
 import { LocalStorageFS, TauriFS, canPickFolder, explainFsError, isTauri, lastWorkspace, pickFolder, revealFolder } from "../platform";
 import type { WorkspaceFS } from "@vastitecture/core";
-import { buildSample } from "../sample";
+import { SAMPLES } from "../sample";
 import { runLayout } from "../ops";
 import { t } from "../i18n";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -45,12 +45,13 @@ export function Modal({ title, onClose, children, wide, footer, description }: {
 /** New / open workspace. No account, no server: a workspace is just a folder (or browser storage in the web build). */
 export function WorkspaceDialog() {
   const [name, setName] = useState("my-architecture");
-  const [template, setTemplate] = useState<"blank" | "sample">("blank");
+  const [template, setTemplate] = useState("blank");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const fsLabel = useApp((s) => s.fsLabel);
   const close = () => set({ newOpen: false });
-  const make = () => (template === "sample" ? { ...buildSample(), name } : blankWorkspace(name));
+  const sample = SAMPLES.find((x) => x.id === template);
+  const make = () => (sample ? { ...sample.build(), name } : blankWorkspace(name));
   const existing = useMemo(() => {
     const names = new Set<string>();
     for (let i = 0; i < localStorage.length; i++) {
@@ -97,10 +98,13 @@ export function WorkspaceDialog() {
           <label className="label" htmlFor="ws-name">{t("Name")}</label>
           <input id="ws-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
           <label className="label" htmlFor="ws-template">{t("Template")}</label>
-          <select id="ws-template" className="input" value={template} onChange={(e) => setTemplate(e.target.value as never)}>
+          <select id="ws-template" className="input" value={template} onChange={(e) => setTemplate(e.target.value)}>
             <option value="blank">{t("Blank")}</option>
-            <option value="sample">{t("Sample: online shop in every notation")}</option>
+            <optgroup label={t("Industry samples")}>
+              {SAMPLES.map((x) => <option key={x.id} value={x.id}>{`${x.industry}: ${x.name}`}</option>)}
+            </optgroup>
           </select>
+          {sample && <p className="hint" data-testid="sample-description">{sample.description} {t("Every sample is shown in C4, ArchiMate, DDD and TOGAF, with portfolio data, decisions and rules. All names are fictional.")}</p>}
           <div className="flex gap-2 mt-4" style={{ flexWrap: "wrap" }}>
             {canPickFolder() && (
               <Button variant="primary" icon={FolderPlus} disabled={busy} onClick={run(async () => {

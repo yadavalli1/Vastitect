@@ -15,6 +15,8 @@ node packages/cli/dist/vastitecture.mjs help
 | `export [dir] --format <id>` | Writes any exporter's output (`formats` lists them). View exporters need `--view "<name>"`. Binary or multi-file formats need `--out`. |
 | `formats` | Lists exporters. |
 | `rules init [dir]` | Adds a starter rule set to `vastitecture.yaml`. |
+| `new <dir> [--sample <id>]` | Creates a workspace in an empty folder: blank, or an industry sample. |
+| `samples` | Lists the industry samples (`retail`, `banking`, `insurance`, `healthcare`, `manufacturing`, `telecom`). |
 
 ## Architecture rules
 

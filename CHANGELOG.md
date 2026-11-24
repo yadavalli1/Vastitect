@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Industry samples
+- Five new sample workspaces beside the online shop:
+  - banking (Northbridge Bank);
+  - insurance (Harbour Mutual);
+  - healthcare (Riverside Health);
+  - manufacturing (Atlas Pumps);
+  - telecommunications (Meridian Telecom).
+- Each is modelled once and shown in C4, ArchiMate, DDD and TOGAF. Each also has portfolio data, a
+  legacy system being replaced, the regulations that shape it, an event storm, decision records,
+  architecture rules and saved filters. All names are fictional.
+- Choose one under Workspace → New workspace → Template, or create one from the command line with
+  `vastitecture new <folder> --sample <id>`. `vastitecture samples` lists them.
+
 ## 0.3.0
 
 ### Design

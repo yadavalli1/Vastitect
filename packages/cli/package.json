@@ -24,7 +24,8 @@
     "@vastitecture/io-archimate": "workspace:*",
     "@vastitecture/io-cml": "workspace:*",
     "@vastitecture/io-formats": "workspace:*",
-    "@vastitecture/render": "workspace:*"
+    "@vastitecture/render": "workspace:*",
+    "@vastitecture/samples": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "0.25.12"
