@@ -201,6 +201,9 @@ importers:
       '@vastitecture/samples':
         specifier: workspace:*
         version: link:../samples
+      yaml:
+        specifier: ^2.6.1
+        version: 2.9.1
     devDependencies:
       esbuild:
         specifier: 0.25.12

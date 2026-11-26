@@ -13,7 +13,8 @@
     "tauri": "pnpm --filter @vastitecture/desktop tauri",
     "lint": "eslint .",
     "i18n": "node scripts/extract-messages.mjs",
-    "schema": "node --experimental-strip-types scripts/build-schema.ts"
+    "schema": "node --experimental-strip-types scripts/build-schema.ts",
+    "skill": "pnpm --filter @vastitecture/cli build && node packages/cli/dist/vastitecture.mjs types --format markdown > skills/vastitecture-modeling/reference/notations.md && node scripts/build-skill.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

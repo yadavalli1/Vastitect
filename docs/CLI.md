@@ -17,6 +17,11 @@ node packages/cli/dist/vastitecture.mjs help
 | `rules init [dir]` | Adds a starter rule set to `vastitecture.yaml`. |
 | `new <dir> [--sample <id>]` | Creates a workspace in an empty folder: blank, or an industry sample. |
 | `samples` | Lists the industry samples (`retail`, `banking`, `insurance`, `healthcare`, `manufacturing`, `telecom`). |
+| `types [--notation <id>] [--format text\|json\|markdown]` | Lists element types, relationship types and viewpoints. |
+| `show [dir] [--view <name>] [--format yaml\|json]` | Prints the model (or one view) as a model spec. |
+| `apply [dir] <spec.yaml \| -> [--dry-run]` | Merges a model spec into the workspace and lays views out. Nothing is written if there are errors. |
+| `mcp [dir]` | Serves the commands to AI tools over MCP (stdio). |
+| `skill install [--target claude\|codex\|<folder>] [--project] [--force]` | Installs the agent skill. See [AGENTS.md](AGENTS.md). |
 
 ## Architecture rules
 

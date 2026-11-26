@@ -27,6 +27,7 @@ its DDD context map and its fact-sheet row.
 | Import | ArchiMate Model Exchange File Format, Archi `.archimate`, Structurizr DSL and JSON, Context Mapper CML, Mermaid (C4 and flowchart), C4-PlantUML, draw.io, CSV, Excel |
 | Export | All of the above except Archi, plus SVG, PNG, PDF, a static HTML site and Markdown docs |
 | Insights | What changed since a commit or another copy (marked on the diagrams), as-is/to-be plateaus from lifecycle dates with the dependencies a migration breaks, dependency hotspots, cycles and single points of failure, where classified data flows, and monthly cloud cost rolled up through the model (from AWS, Azure or Google Cloud billing exports) |
+| AI agents | A skill and an MCP server let Claude Code, Codex, Cursor, Claude Desktop and other agents create and change models from a short name-based spec, validated before anything is written ([docs/AGENTS.md](docs/AGENTS.md)) |
 | Industry samples | Ready-made workspaces for retail, banking, insurance, healthcare, manufacturing and telecommunications ([below](#industry-samples)) |
 | Comments | Review comments on elements, stored in the workspace one file each, so they travel through Git |
 | Architecture rules | Checks written as data in `vastitecture.yaml` (required owners, forbidden dependencies, boundaries, fan-in/fan-out limits), shown live in the app and enforced in CI by the `vastitecture` command-line tool, which also diffs and exports workspaces ([docs/CLI.md](docs/CLI.md)) |

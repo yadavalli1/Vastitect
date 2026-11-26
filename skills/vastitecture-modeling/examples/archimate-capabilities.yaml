@@ -1,0 +1,23 @@
+# Capabilities with fit and cost (for the heat map), the systems that realise them, and the
+# regulation behind a requirement. Apply after c4-system.yaml: it reuses "Online Shop".
+elements:
+  - { name: Sales, type: archimate:Capability, description: Sell to customers., properties: { functionalFit: Adequate } }
+  - { name: Order Management, type: archimate:Capability, parent: Sales, description: Take and track orders., properties: { functionalFit: Excellent, annualCost: 420000 } }
+  - { name: Payments, type: archimate:Capability, parent: Sales, description: Take money safely., properties: { functionalFit: Excellent, annualCost: 90000 } }
+  - { name: Card security rules, type: archimate:Driver, description: Card industry security standard (PCI DSS). }
+  - { name: No card numbers stored, type: archimate:Requirement, description: Only the payment provider holds card numbers. }
+relationships:
+  - { from: Online Shop, to: Order Management, type: archimate:Realization }
+  - { from: Payment Provider, to: Payments, type: archimate:Realization }
+  - { from: Card security rules, to: No card numbers stored, type: archimate:Influence }
+  - { from: Payment Provider, to: No card numbers stored, type: archimate:Realization }
+views:
+  - name: Capability map
+    viewpoint: archimate:capability-map
+    rows: [[Sales, Order Management, Payments]]
+  - name: Regulation
+    viewpoint: archimate:motivation
+    rows: [[Card security rules], [No card numbers stored]]
+  - name: How requirements are met
+    viewpoint: archimate:requirements-realization
+    rows: [[No card numbers stored], [Payment Provider]]

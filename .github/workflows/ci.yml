@@ -26,6 +26,8 @@ jobs:
       - run: pnpm typecheck
       - name: Messages are extracted
         run: node scripts/extract-messages.mjs --check
+      - name: The CLI embeds the current agent skill
+        run: node scripts/build-skill.mjs --check
       - name: Unit tests (core, notations, importers, connectors, plugin sandbox)
         run: pnpm test
       - name: Command-line tool builds and runs on plain Node

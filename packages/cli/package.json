@@ -25,7 +25,8 @@
     "@vastitecture/io-cml": "workspace:*",
     "@vastitecture/io-formats": "workspace:*",
     "@vastitecture/render": "workspace:*",
-    "@vastitecture/samples": "workspace:*"
+    "@vastitecture/samples": "workspace:*",
+    "yaml": "^2.6.1"
   },
   "devDependencies": {
     "esbuild": "0.25.12"

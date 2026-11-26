@@ -1,0 +1,45 @@
+# Subdomains, team ownership, a context map and an event storm. Apply after c4-system.yaml.
+elements:
+  - { name: E-commerce, type: ddd:Domain, description: Selling goods online. }
+  - { name: Ordering, type: ddd:Subdomain, parent: E-commerce, description: Fast, reliable checkout., properties: { subdomainType: Core } }
+  - { name: Team Checkout, type: ddd:Team, description: Owns ordering. }
+  - name: Online Shop
+    properties:
+      purpose: Take an order from basket to confirmed payment.
+      domainClassification: Core
+      ubiquitousLanguage: "Basket: items a customer intends to buy.\nOrder: a basket the customer committed to."
+  - { name: Place order, type: ddd:Command, parent: Online Shop, description: A customer submits their basket. }
+  - { name: Order, type: ddd:Aggregate, parent: Online Shop, description: Keeps an order consistent. }
+  - { name: Order placed, type: ddd:DomainEvent, parent: Online Shop, description: An order was accepted. }
+  - { name: Charge when placed, type: ddd:Policy, parent: Online Shop, description: Whenever an order is placed, take payment. }
+relationships:
+  - { from: Online Shop, to: Ordering, type: ddd:Implements }
+  - { from: Team Checkout, to: Online Shop, type: ddd:Owns }
+  - { from: Payment Provider, to: Online Shop, type: ddd:AnticorruptionLayer, label: payment results, properties: { downstreamRoles: ACL } }
+  - { from: Place order, to: Order, type: ddd:Triggers }
+  - { from: Order, to: Order placed, type: ddd:Triggers }
+  - { from: Order placed, to: Charge when placed, type: ddd:Triggers }
+views:
+  - name: Context map
+    viewpoint: ddd:context-map
+    rows: [[Team Checkout], [Payment Provider, Online Shop]]
+  - name: Place an order (event storm)
+    viewpoint: ddd:event-storming
+    rows: [[Place order, Order, Order placed, Charge when placed]]
+  - name: Online Shop – canvas
+    viewpoint: ddd:canvas
+    subject: Online Shop
+decisions:
+  - title: Keep card data with the payment provider
+    status: accepted
+    date: "2026-01-10"
+    elements: [Payment Provider, Order API]
+    body: |
+      ## Context
+      Storing card numbers puts every system that touches them in PCI DSS scope.
+
+      ## Decision
+      The payment provider holds card numbers; we keep tokens.
+
+      ## Consequences
+      Less compliance scope; refunds go through the provider's API.

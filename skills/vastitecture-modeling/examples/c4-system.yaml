@@ -1,0 +1,34 @@
+# A system, its containers and its neighbours, in C4. Apply to a blank workspace:
+#   vastitecture new shop && vastitecture apply shop c4-system.yaml
+elements:
+  - name: Customer
+    type: c4:Person
+    description: Buys from the shop.
+  - name: Online Shop
+    type: c4:SoftwareSystem
+    description: Lets customers browse the catalogue, place orders and pay.
+    owner: Team Checkout
+    tags: [customer-facing]
+    lifecycle: { phase: active, dates: { active: "2021-03-01" } }
+    properties: { criticality: Mission critical, technicalFit: Adequate, annualCost: 420000, dataClassification: confidential }
+  - { name: Web App, type: c4:Container, parent: Online Shop, description: Storefront in the browser., properties: { technology: React } }
+  - { name: Order API, type: c4:Container, parent: Online Shop, description: Accepts orders and takes payment., properties: { technology: Node.js } }
+  - { name: Orders DB, type: c4:Container, parent: Online Shop, description: Orders and payment state., properties: { technology: PostgreSQL, kind: Database } }
+  - name: Payment Provider
+    type: c4:SoftwareSystem
+    description: Authorises card payments.
+    properties: { location: External, external: true }
+relationships:
+  - { from: Customer, to: Web App, type: c4:Uses, label: Browses and orders with, technology: HTTPS }
+  - { from: Web App, to: Order API, type: c4:Uses, label: Places orders via, technology: JSON/HTTPS }
+  - { from: Order API, to: Orders DB, type: c4:Uses, label: Reads and writes, technology: SQL }
+  - { from: Order API, to: Payment Provider, type: c4:Uses, label: Takes payment via, technology: HTTPS }
+views:
+  - name: Online Shop – context
+    viewpoint: c4:context
+    subject: Online Shop
+    rows: [[Customer], [Online Shop], [Payment Provider]]
+  - name: Online Shop – containers
+    viewpoint: c4:container
+    subject: Online Shop
+    rows: [[Customer], [Online Shop, Web App, Order API, Orders DB], [Payment Provider]]

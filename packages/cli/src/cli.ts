@@ -1,8 +1,10 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import {
   DEFAULT_MAPPINGS,
+  Persister,
   Registry,
+  type WorkspaceFS,
   emptyWorkspace,
   STARTER_RULES,
   checkRules,
@@ -29,6 +31,9 @@ import cml from "@vastitecture/io-cml";
 import formats, { svgToPdfPage, writeVectorPdf } from "@vastitecture/io-formats";
 import { viewToSvg } from "@vastitecture/render";
 import { SAMPLES, sampleById } from "@vastitecture/samples";
+import { applySpec, describe, parseSpec, specToYaml, vocabulary, vocabularyMarkdown } from "./spec";
+import { serveMcp } from "./mcp";
+import { installSkill } from "./skill";
 import { definePlugin } from "@vastitecture/plugin-sdk";
 
 /** The same built-in notations and formats as the app, activated in-process. Connectors are left out: the CLI never reaches the network. */
@@ -122,6 +127,11 @@ Usage:
   vastitecture rules init [dir]
   vastitecture new <dir> [--sample <id>]
   vastitecture samples
+  vastitecture types [--notation <id>] [--format text|json|markdown]
+  vastitecture show [dir] [--view <name>] [--format yaml|json]
+  vastitecture apply [dir] <spec.yaml | -> [--dry-run]
+  vastitecture mcp [dir]
+  vastitecture skill install [--target claude|codex|<folder>] [--project]
 
 check   validates the model and runs the architecture rules in vastitecture.yaml. Exit code 1 when a
         problem at or above --fail-on (default: error) is found.
@@ -129,7 +139,15 @@ diff    summarises what changed between two copies of a workspace (for example t
         a pull request) and which problems the change introduces or fixes.
 export  writes a workspace or view export (Structurizr DSL, ArchiMate exchange, Mermaid, PlantUML, …).
 rules init adds a starter set of rules to vastitecture.yaml.
-new     creates a workspace in an empty folder: blank, or an industry sample (see \`samples\`).`;
+new     creates a workspace in an empty folder: blank, or an industry sample (see \`samples\`).
+
+For AI agents and scripts (see docs/AGENTS.md):
+types   lists element types, relationship types and viewpoints by notation.
+show    prints the workspace (or one view) as a model spec: elements, relationships and views by name.
+apply   merges a model spec (YAML or JSON, "-" for stdin) into the workspace, lays new views out and
+        validates the result. Nothing is written when the spec has errors; exit code 1.
+mcp     serves these commands to AI tools over the Model Context Protocol (stdio).
+skill install  copies the Vastitecture modelling skill to Claude Code, Codex or a folder.`;
 
 export async function run(argv: string[], io: Io): Promise<number> {
   const [cmd, ...rest] = argv;
@@ -155,6 +173,22 @@ export async function run(argv: string[], io: Io): Promise<number> {
       case "new":
         if (!pos[0]) throw new UsageError("Try: vastitecture new <dir> [--sample <id>]");
         return await newCmd(resolve(io.cwd, pos[0]), opt, io);
+      case "types":
+        return await typesCmd(opt, io);
+      case "show":
+        return await showCmd(dirArg(), opt, io);
+      case "apply": {
+        // `apply spec.yaml` (current folder) or `apply <dir> <spec>`
+        const [dir, specPath] = pos.length >= 2 ? [pos[0], pos[1]] : [".", pos[0]];
+        if (!specPath) throw new UsageError("Try: vastitecture apply [dir] <spec.yaml | ->");
+        return await applyCmd(resolve(io.cwd, dir), specPath === "-" ? "-" : resolve(io.cwd, specPath), opt, io);
+      }
+      case "mcp":
+        await serveMcp(dirArg(), { stdin: process.stdin, stdout: process.stdout, log: io.err });
+        return 0;
+      case "skill":
+        if (pos[0] !== "install") throw new UsageError("Try: vastitecture skill install [--target claude|codex|<folder>] [--project]");
+        return await installSkill(opt, io);
       case "samples":
         for (const x of SAMPLES) io.out(`${x.id.padEnd(14)} ${`${x.industry}: ${x.name}`.padEnd(36)} ${x.description}`);
         return 0;
@@ -283,6 +317,101 @@ async function exportCmd(dir: string, opt: Record<string, string | true>, io: Io
     io.err(`Wrote ${Object.keys(result).length} file(s) to ${out}`);
   }
   return 0;
+}
+
+/** Node filesystem for the Persister, so `apply` writes only changed files and removes deleted ones. */
+export class NodeFS implements WorkspaceFS {
+  constructor(public label: string) {}
+  readAll() {
+    return readWorkspaceFiles(this.label);
+  }
+  async write(path: string, content: string) {
+    const p = join(this.label, path);
+    await mkdir(dirname(p), { recursive: true });
+    await writeFile(p, content);
+  }
+  async remove(path: string) {
+    await rm(join(this.label, path), { force: true });
+  }
+}
+
+async function typesCmd(opt: Record<string, string | true>, io: Io) {
+  const reg = await createRegistry();
+  const notation = typeof opt.notation === "string" ? opt.notation : undefined;
+  if (notation && !reg.packs.has(notation)) throw new UsageError(`Unknown notation "${notation}". Available: ${[...reg.packs.keys()].join(", ")}`);
+  if (opt.format === "json") io.out(JSON.stringify(vocabulary(reg, notation), null, 2));
+  else if (opt.format === "markdown") io.out(vocabularyMarkdown(reg));
+  else
+    for (const n of vocabulary(reg, notation)) {
+      io.out(`${n.name} (${n.notation})`);
+      io.out(`  elements:      ${n.elementTypes.map((t) => t.id).join(", ")}`);
+      io.out(`  relationships: ${n.relationshipTypes.map((t) => t.id).join(", ") || "-"}`);
+      io.out(`  viewpoints:    ${n.viewpoints.map((v) => v.id).join(", ") || "-"}`);
+    }
+  return 0;
+}
+
+async function showCmd(dir: string, opt: Record<string, string | true>, io: Io) {
+  const { ws } = await loadWorkspace(dir);
+  const view = typeof opt.view === "string" ? opt.view : undefined;
+  if (view && !Object.values(ws.views).some((v) => v.name === view)) throw new UsageError(`No view named "${view}". Views: ${Object.values(ws.views).map((v) => JSON.stringify(v.name)).join(", ")}`);
+  const spec = describe(ws, { view });
+  io.out(opt.format === "json" ? JSON.stringify(spec, null, 2) : specToYaml(spec));
+  return 0;
+}
+
+const readStdin = async () => {
+  const chunks: Buffer[] = [];
+  for await (const c of process.stdin) chunks.push(c as Buffer);
+  return Buffer.concat(chunks).toString("utf8");
+};
+
+/** Apply a model spec to a workspace folder. Shared by the `apply` command and the MCP server. */
+export async function applyToFolder(dir: string, text: string, dryRun: boolean) {
+  const reg = await createRegistry();
+  const persister = new Persister(new NodeFS(dir));
+  const { workspace } = await persister.load();
+  let spec;
+  try {
+    spec = parseSpec(text);
+  } catch (e) {
+    return { ok: false, errors: [`The spec is not valid YAML or JSON: ${e instanceof Error ? e.message : e}`], changed: [] as string[], report: "" };
+  }
+  const result = applySpec(workspace, spec, reg);
+  if (result.errors.length) return { ok: false, errors: result.errors, changed: [] as string[], report: "" };
+  const s = result.summary;
+  const parts = [
+    s.elements.added.length && `+${s.elements.added.length} element(s)`,
+    s.elements.updated.length && `~${s.elements.updated.length} updated`,
+    s.elements.removed.length && `-${s.elements.removed.length} removed`,
+    s.relationships.added && `+${s.relationships.added} relationship(s)`,
+    s.relationships.updated && `~${s.relationships.updated} relationship(s) updated`,
+    s.relationships.removed && `-${s.relationships.removed} relationship(s)`,
+    s.views.added.length && `+${s.views.added.length} view(s)`,
+    s.views.updated.length && `~${s.views.updated.length} view(s) updated`,
+    s.views.removed.length && `-${s.views.removed.length} view(s)`,
+    s.decisions.added.length && `+${s.decisions.added.length} decision(s)`,
+  ].filter(Boolean);
+  const problems = [...validate(result.workspace, reg), ...checkRules(result.workspace).flatMap((r) => r.problems)];
+  const errors = problems.filter((p) => p.severity === "error");
+  const lines = [parts.join(", ") || "No changes", ...problems.filter((p) => p.severity !== "info").map((p) => `${p.severity} ${p.code}: ${p.message}`)];
+  // a spec that would leave the model with validation errors is not written either
+  if (errors.length) return { ok: false, errors: errors.map((p) => `${p.code}: ${p.message}`), changed: [] as string[], report: lines.join("\n") };
+  const changed = dryRun ? [] : await persister.save(result.workspace);
+  return { ok: true, errors: [] as string[], changed, report: lines.join("\n") };
+}
+
+async function applyCmd(dir: string, specPath: string, opt: Record<string, string | true>, io: Io) {
+  const text = specPath === "-" ? await readStdin() : await readFile(specPath, "utf8");
+  const r = await applyToFolder(dir, text, opt["dry-run"] === true);
+  if (r.errors.length) {
+    io.err(`The spec was not applied (${r.errors.length} problem(s)):`);
+    for (const e of r.errors) io.err(`- ${e}`);
+    return 1;
+  }
+  io.out(r.report);
+  io.err(opt["dry-run"] === true ? "Dry run: nothing written." : `Wrote ${r.changed.length} file(s) in ${dir}.`);
+  return r.ok ? 0 : 1;
 }
 
 async function newCmd(dir: string, opt: Record<string, string | true>, io: Io) {

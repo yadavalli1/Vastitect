@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### AI agents
+- **An agent skill** (`skills/vastitecture-modeling`) so Claude Code, Codex and other agents can create
+  and change models. Install it with `vastitecture skill install` (Claude Code), `--target codex`, or
+  into any folder.
+- **Model specs:** a short YAML format that names elements, relationships, views and decisions without
+  ids or coordinates.
+- **New commands:**
+  - `vastitecture apply` validates a spec against the notation packs, merges it, lays out new views,
+    and refuses to write anything that has errors. Each error lists the valid choices.
+  - `vastitecture show` prints a model in the same format.
+  - `vastitecture types` lists the notation vocabulary.
+- **An MCP server** (`vastitecture mcp`) offers the same commands to Claude Desktop, Cursor, Codex and
+  other MCP clients. It is confined to one folder.
+- Releases now attach the single-file CLI (`vastitecture.mjs`) and the skill as a zip.
+- Setup for each tool is in `docs/AGENTS.md`.
+
 ### Industry samples
 - Five new sample workspaces beside the online shop:
   - banking (Northbridge Bank);

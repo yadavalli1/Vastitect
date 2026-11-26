@@ -141,3 +141,28 @@ jobs:
             target/**/release/bundle/msi/*.msi
             target/**/release/bundle/appimage/*.AppImage
             target/**/release/bundle/deb/*.deb
+
+  # The command-line tool (one file, Node 20+) and the AI agent skill, attached to the same release, so
+  # agents outside a checkout can download them.
+  cli-and-skill:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @vastitecture/cli build
+      - name: Package the skill
+        run: cd skills && zip -r ../vastitecture-modeling-skill.zip vastitecture-modeling
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}-dev.{1}', '0.3.0', github.run_number) }}
+        run: gh release upload "$TAG" packages/cli/dist/vastitecture.mjs vastitecture-modeling-skill.zip --clobber
