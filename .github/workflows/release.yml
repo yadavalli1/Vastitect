@@ -1,16 +1,29 @@
 name: Release
 
 # Builds installers for macOS (universal), Windows (MSI) and Linux (AppImage, .deb).
-# - Tag push (v*) or manual run: attaches them to a draft GitHub release.
+# - Tag push (v*) or manual run: attaches them to a draft GitHub release, then adds SHA256SUMS.txt
+#   and a build provenance attestation for every file.
 # - Pull request labelled `build-installers`: uploads them as workflow artifacts only (no tag, no release).
 #   Only the act of adding the label starts a build, so each build is of the commit a maintainer looked at:
 #   later pushes do not rebuild until the label is added again. Pull-request builds never receive the
 #   signing secrets, since they run code from the pull request.
 #
-# Signing is optional and switched on by repository secrets. Without them the installers are unsigned.
-#   macOS:   APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
-#            APPLE_ID, APPLE_PASSWORD (app-specific), APPLE_TEAM_ID  (signing + notarisation)
-#   Windows: WINDOWS_CERTIFICATE (base64 .pfx), WINDOWS_CERTIFICATE_PASSWORD
+# Signing is optional and switched on by repository secrets and variables. Without them the installers
+# are unsigned and the build still succeeds. docs/RELEASE-SIGNING.md says how to get each one.
+#
+#   macOS (Developer ID Application certificate, needed for any signed macOS build):
+#     secrets APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY
+#   macOS notarisation, one of:
+#     App Store Connect API key (preferred): secrets APPLE_API_KEY (key ID), APPLE_API_ISSUER (issuer ID),
+#       APPLE_API_PRIVATE_KEY (contents of the AuthKey_<id>.p8 file)
+#     Apple ID: secrets APPLE_ID, APPLE_PASSWORD (app-specific password), APPLE_TEAM_ID
+#   Windows, one of:
+#     Azure Artifact Signing (preferred): secrets AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID and
+#       variables AZURE_SIGNING_ENDPOINT, AZURE_SIGNING_ACCOUNT, AZURE_SIGNING_PROFILE
+#     A .pfx certificate (only OV certificates issued before June 2023 can still be exported this way):
+#       secrets WINDOWS_CERTIFICATE (base64 .pfx), WINDOWS_CERTIFICATE_PASSWORD
+#   Linux (GPG signature embedded in the AppImage, and SHA256SUMS.txt.asc):
+#     secrets LINUX_GPG_PRIVATE_KEY (ASCII-armoured), LINUX_GPG_PASSPHRASE
 #   Updater: TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD, and the matching public key
 #            in apps/desktop/src-tauri/tauri.conf.json (plugins.updater.pubkey)
 
@@ -41,6 +54,8 @@ jobs:
             args: --bundles appimage,deb
             rust-targets: ""
     runs-on: ${{ matrix.platform }}
+    outputs:
+      release-id: ${{ steps.tauri.outputs.releaseId }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -61,23 +76,52 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev patchelf
       - run: pnpm install --frozen-lockfile
 
-      - name: Import the Windows signing certificate
+      # Windows: Azure Artifact Signing when its secrets exist, otherwise a .pfx certificate when that
+      # exists, otherwise unsigned. Either way Tauri signs the app's .exe before packing it, then the MSI.
+      - name: Windows signing only when a signing method is configured
         if: runner.os == 'Windows'
         env:
+          AZURE_CLIENT_ID: ${{ github.event_name != 'pull_request' && secrets.AZURE_CLIENT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ github.event_name != 'pull_request' && secrets.AZURE_CLIENT_SECRET || '' }}
+          AZURE_TENANT_ID: ${{ github.event_name != 'pull_request' && secrets.AZURE_TENANT_ID || '' }}
+          AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
           WINDOWS_CERTIFICATE: ${{ github.event_name != 'pull_request' && secrets.WINDOWS_CERTIFICATE || '' }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
         shell: pwsh
         run: |
-          if (-not $env:WINDOWS_CERTIFICATE) { Write-Output "::notice::No WINDOWS_CERTIFICATE secret: the MSI will be unsigned."; exit 0 }
+          if ($env:AZURE_CLIENT_SECRET) {
+            foreach ($v in "AZURE_CLIENT_ID","AZURE_TENANT_ID","AZURE_SIGNING_ENDPOINT","AZURE_SIGNING_ACCOUNT","AZURE_SIGNING_PROFILE") {
+              if (-not [Environment]::GetEnvironmentVariable($v)) { Write-Output "::error::Azure Artifact Signing is set up but $v is missing."; exit 1 }
+            }
+            # The tool the Tauri signing guide uses for Artifact Signing, pinned to a released version.
+            cargo install artifact-signing-cli --version 0.12.0 --locked
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            foreach ($v in "AZURE_CLIENT_ID","AZURE_CLIENT_SECRET","AZURE_TENANT_ID") {
+              $val = [Environment]::GetEnvironmentVariable($v)
+              Write-Output "::add-mask::$val"
+              "$v=$val" | Out-File -FilePath $env:GITHUB_ENV -Append
+            }
+            $cmd = @{ cmd = "artifact-signing-cli"; args = @("-e", $env:AZURE_SIGNING_ENDPOINT, "-a", $env:AZURE_SIGNING_ACCOUNT, "-c", $env:AZURE_SIGNING_PROFILE, "-d", "Vastitecture", "%1") }
+            $conf = @{ bundle = @{ windows = @{ signCommand = $cmd } } } | ConvertTo-Json -Depth 6 -Compress
+            "TAURI_SIGN_CONFIG=$conf" | Out-File -FilePath $env:GITHUB_ENV -Append
+            "WINDOWS_SIGNED=1" | Out-File -FilePath $env:GITHUB_ENV -Append
+            Write-Output "::notice::Signing the Windows build with Azure Artifact Signing."
+            exit 0
+          }
+          if (-not $env:WINDOWS_CERTIFICATE) { Write-Output "::notice::No Windows signing secrets: the MSI will be unsigned."; exit 0 }
           $bytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
           [IO.File]::WriteAllBytes("cert.pfx", $bytes)
           $cert = Import-PfxCertificate -FilePath cert.pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force)
           Remove-Item cert.pfx
           $conf = @{ bundle = @{ windows = @{ certificateThumbprint = $cert.Thumbprint; digestAlgorithm = "sha256"; timestampUrl = "http://timestamp.digicert.com" } } } | ConvertTo-Json -Depth 5 -Compress
           "TAURI_SIGN_CONFIG=$conf" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "WINDOWS_SIGNED=1" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       # GitHub passes a missing secret as an empty string, and Tauri treats an empty APPLE_CERTIFICATE as
-      # "sign with this" and fails. So the Apple variables are only set when the secrets exist.
+      # "sign with this" and fails (this is what broke the first universal macOS build on Nov 17). So the
+      # Apple variables are only set when the secrets exist.
       - name: macOS signing only when a certificate is configured
         if: runner.os == 'macOS'
         shell: bash
@@ -85,6 +129,9 @@ jobs:
           APPLE_CERTIFICATE: ${{ github.event_name != 'pull_request' && secrets.APPLE_CERTIFICATE || '' }}
           APPLE_CERTIFICATE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
           APPLE_SIGNING_IDENTITY: ${{ github.event_name != 'pull_request' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_API_KEY: ${{ github.event_name != 'pull_request' && secrets.APPLE_API_KEY || '' }}
+          APPLE_API_ISSUER: ${{ github.event_name != 'pull_request' && secrets.APPLE_API_ISSUER || '' }}
+          APPLE_API_PRIVATE_KEY: ${{ github.event_name != 'pull_request' && secrets.APPLE_API_PRIVATE_KEY || '' }}
           APPLE_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID || '' }}
           APPLE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_PASSWORD || '' }}
           APPLE_TEAM_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_TEAM_ID || '' }}
@@ -93,12 +140,52 @@ jobs:
             echo "::notice::No APPLE_CERTIFICATE secret: the macOS app will be unsigned."
             exit 0
           fi
-          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
-            if [ -n "${!v}" ]; then
-              echo "::add-mask::${!v}"
-              { echo "$v<<__EOF__"; echo "${!v}"; echo "__EOF__"; } >> "$GITHUB_ENV"
-            fi
-          done
+          export_var() {
+            echo "::add-mask::${!1}"
+            { echo "$1<<__EOF__"; echo "${!1}"; echo "__EOF__"; } >> "$GITHUB_ENV"
+          }
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY; do export_var "$v"; done
+          if [ -n "$APPLE_API_PRIVATE_KEY" ]; then
+            # Notarise with an App Store Connect API key. Tauri reads the key from a file.
+            key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
+            printf '%s\n' "$APPLE_API_PRIVATE_KEY" > "$key_path"
+            chmod 600 "$key_path"
+            export_var APPLE_API_KEY
+            export_var APPLE_API_ISSUER
+            echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+            echo "MACOS_NOTARISED=1" >> "$GITHUB_ENV"
+            echo "::notice::Signing and notarising the macOS app with an App Store Connect API key."
+          elif [ -n "$APPLE_ID" ]; then
+            for v in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do export_var "$v"; done
+            echo "MACOS_NOTARISED=1" >> "$GITHUB_ENV"
+            echo "::notice::Signing and notarising the macOS app with an Apple ID."
+          else
+            echo "::warning::A signing certificate is set but no notarisation credentials: the app will be signed but not notarised, and Gatekeeper will still warn."
+          fi
+          echo "MACOS_SIGNED=1" >> "$GITHUB_ENV"
+
+      # Linux: the AppImage tool embeds a GPG signature when SIGN=1 (Tauri's documented switch).
+      - name: Linux AppImage signing only when a GPG key is configured
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          LINUX_GPG_PRIVATE_KEY: ${{ github.event_name != 'pull_request' && secrets.LINUX_GPG_PRIVATE_KEY || '' }}
+          LINUX_GPG_PASSPHRASE: ${{ github.event_name != 'pull_request' && secrets.LINUX_GPG_PASSPHRASE || '' }}
+        run: |
+          if [ -z "$LINUX_GPG_PRIVATE_KEY" ]; then
+            echo "::notice::No LINUX_GPG_PRIVATE_KEY secret: the AppImage will carry no GPG signature."
+            exit 0
+          fi
+          printf '%s\n' "$LINUX_GPG_PRIVATE_KEY" | gpg --batch --import
+          key_id=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ { print $5; exit }')
+          echo "::add-mask::$LINUX_GPG_PASSPHRASE"
+          {
+            echo "SIGN=1"
+            echo "SIGN_KEY=$key_id"
+            echo "APPIMAGETOOL_FORCE_SIGN=1"
+            echo "APPIMAGETOOL_SIGN_PASSPHRASE<<__EOF__"; echo "$LINUX_GPG_PASSPHRASE"; echo "__EOF__"
+          } >> "$GITHUB_ENV"
+          echo "::notice::Signing the AppImage with GPG key $key_id."
 
       - name: Updater artifacts only when an updater key is configured
         shell: bash
@@ -113,6 +200,7 @@ jobs:
           fi
 
       - name: Build${{ github.event_name != 'pull_request' && ' and attach to a draft release' || '' }}
+        id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -123,11 +211,46 @@ jobs:
           # Empty on pull requests: build only, no tag or release.
           tagName: ${{ github.event_name == 'pull_request' && '' || (github.ref_type == 'tag' && github.ref_name || format('v{0}-dev.{1}', '0.3.0', github.run_number)) }}
           releaseName: "Vastitecture ${{ github.ref_type == 'tag' && github.ref_name || 'development build' }}"
-          releaseBody: "What is new: see CHANGELOG.md in the repository. Installers for macOS, Windows and Linux are attached below. They are unsigned: on macOS use System Settings, Privacy & Security, Open Anyway; on Windows choose More info, Run anyway."
+          releaseBody: |
+            What is new: see CHANGELOG.md in the repository. Installers for macOS, Windows and Linux are attached below.
+
+            To check a download, compare it with SHA256SUMS.txt, or run `gh attestation verify <file> --repo ${{ github.repository }}`.
+            If a build is unsigned, macOS asks you to use System Settings, Privacy & Security, Open Anyway, and Windows asks you to choose More info, Run anyway.
           releaseDraft: true
           prerelease: ${{ github.ref_type != 'tag' }}
           includeUpdaterJson: ${{ env.UPDATER_CONFIG != '{}' }}
           args: ${{ matrix.args }} --config ${{ env.UPDATER_CONFIG }}${{ env.TAURI_SIGN_CONFIG != '' && format(' --config {0}', env.TAURI_SIGN_CONFIG) || '' }}
+
+      # Fail the run if a build that was meant to be signed is not.
+      - name: Check the macOS signature and notarisation
+        if: runner.os == 'macOS' && env.MACOS_SIGNED == '1'
+        shell: bash
+        run: |
+          app=$(ls -d target/universal-apple-darwin/release/bundle/macos/*.app | head -n 1)
+          codesign --verify --deep --strict --verbose=2 "$app"
+          if [ "${MACOS_NOTARISED:-}" = "1" ]; then
+            xcrun stapler validate "$app"
+            spctl --assess --type execute --verbose "$app"
+          fi
+      - name: Check the Windows signature
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNED == '1'
+        shell: pwsh
+        run: |
+          foreach ($f in Get-ChildItem target/release/bundle/msi/*.msi) {
+            $s = Get-AuthenticodeSignature $f.FullName
+            Write-Output "$($f.Name): $($s.Status) $($s.SignerCertificate.Subject)"
+            if ($s.Status -ne "Valid") { exit 1 }
+          }
+      - name: Check the AppImage signature
+        if: runner.os == 'Linux' && env.SIGN == '1'
+        shell: bash
+        run: |
+          # The signature lives in the AppImage's .sha256_sig ELF section; read it without running the file.
+          for f in target/release/bundle/appimage/*.AppImage; do
+            objcopy -O binary --only-section=.sha256_sig "$f" sig.bin
+            grep -q "BEGIN PGP SIGNATURE" sig.bin || { echo "::error::$f has no embedded GPG signature"; exit 1; }
+            rm sig.bin
+          done
 
       - name: Upload the installers (pull requests)
         if: github.event_name == 'pull_request'
@@ -141,3 +264,66 @@ jobs:
             target/**/release/bundle/msi/*.msi
             target/**/release/bundle/appimage/*.AppImage
             target/**/release/bundle/deb/*.deb
+
+  # After all three platforms have uploaded: checksums for every file on the draft release, an optional
+  # GPG signature over them, and a build provenance attestation (free on public repositories).
+  checksums:
+    needs: build
+    if: github.event_name != 'pull_request' && needs.build.outputs.release-id != ''
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_ID: ${{ needs.build.outputs.release-id }}
+    steps:
+      - name: Download the release files
+        shell: bash
+        run: |
+          mkdir -p dist
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets" --paginate \
+            --jq '.[] | select(.name | startswith("SHA256SUMS") | not) | "\(.id) \(.name)"' |
+          while read -r id name; do
+            gh api -H "Accept: application/octet-stream" "repos/$GITHUB_REPOSITORY/releases/assets/$id" > "dist/$name"
+          done
+          ls -l dist
+
+      - name: Write SHA256SUMS.txt
+        shell: bash
+        working-directory: dist
+        run: sha256sum -- * | tee ../SHA256SUMS.txt
+
+      - name: Sign SHA256SUMS.txt (when a GPG key is configured)
+        shell: bash
+        env:
+          LINUX_GPG_PRIVATE_KEY: ${{ secrets.LINUX_GPG_PRIVATE_KEY }}
+          LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
+        run: |
+          if [ -z "$LINUX_GPG_PRIVATE_KEY" ]; then
+            echo "::notice::No LINUX_GPG_PRIVATE_KEY secret: SHA256SUMS.txt is not GPG-signed."
+            exit 0
+          fi
+          printf '%s\n' "$LINUX_GPG_PRIVATE_KEY" | gpg --batch --import
+          printf '%s' "$LINUX_GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --armor --detach-sign --output SHA256SUMS.txt.asc SHA256SUMS.txt
+
+      - name: Attach the checksums to the draft release
+        shell: bash
+        run: |
+          for f in SHA256SUMS.txt SHA256SUMS.txt.asc; do
+            [ -f "$f" ] || continue
+            # A re-run replaces the file rather than failing on a duplicate name.
+            old=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets" --paginate --jq ".[] | select(.name == \"$f\") | .id")
+            if [ -n "$old" ]; then gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$old"; fi
+            curl --fail-with-body -sS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/octet-stream" \
+              --data-binary "@$f" \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$f" > /dev/null
+          done
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
