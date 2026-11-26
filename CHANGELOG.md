@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Releases
+- Installers can now be signed: Developer ID and notarisation on macOS (App Store Connect API key or
+  Apple ID), Azure Artifact Signing on Windows, and a GPG signature in the Linux AppImage. Each switches
+  on when its secrets are added; see docs/RELEASE-SIGNING.md.
+- Every release gets SHA256SUMS.txt and a build provenance attestation for each file.
+- A release run fails if a platform that has signing secrets produces an unsigned installer.
+
 ### Industry samples
 - Five new sample workspaces beside the online shop:
   - banking (Northbridge Bank);
